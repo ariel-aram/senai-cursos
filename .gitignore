@@ -7,6 +7,13 @@ dist
 out
 *.tgz
 
+# Database & local storage (embedded SurrealDB)
+data/
+*.db
+*.wal
+*.manifest
+LOCK
+
 # Environment variables
 .env
 .env*.local
