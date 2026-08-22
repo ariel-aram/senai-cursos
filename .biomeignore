@@ -1,0 +1,8 @@
+node_modules/
+graphify-out/
+dist/
+build/
+.next/
+out/
+*.min.js
+*.min.css

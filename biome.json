@@ -1,0 +1,116 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.5.10/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"ignoreUnknown": false,
+		"includes": ["src/**", "config/**", "scripts/**", "build.ts", "tailwind.config.ts"]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineWidth": 100
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"a11y": {
+				"noSvgWithoutTitle": "off"
+			},
+			"correctness": {
+				"useParseIntRadix": "warn",
+				"useIsNan": "error",
+				"noUnusedVariables": "warn"
+			},
+			"style": {
+				"noNonNullAssertion": "warn",
+				"useNamingConvention": {
+					"level": "warn",
+					"options": {
+						"strictCase": false
+					}
+				}
+			},
+			"suspicious": {
+				"noAssignInExpressions": "warn",
+				"noArrayIndexKey": "warn",
+				"noConsole": "warn"
+			},
+			"complexity": {
+				"noExcessiveCognitiveComplexity": "off"
+			},
+			"performance": {
+				"noAccumulatingSpread": "warn"
+			},
+			"security": {
+				"noDangerouslySetInnerHtml": "warn"
+			}
+		}
+	},
+	"css": {
+		"parser": {
+			"cssModules": false,
+			"tailwindDirectives": true
+		},
+		"formatter": {
+			"enabled": true,
+			"indentStyle": "tab"
+		},
+		"linter": {
+			"enabled": true
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double"
+		}
+	},
+	"json": {
+		"formatter": {
+			"enabled": true,
+			"indentStyle": "tab"
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["build.ts", "scripts/**", "src/index.ts", "src/db.ts"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off"
+					},
+					"style": {
+						"useNamingConvention": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["tailwind.config.ts"],
+			"linter": {
+				"rules": {
+					"style": {
+						"useNamingConvention": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["src/index.html"],
+			"linter": {
+				"rules": {
+					"style": {
+						"useNamingConvention": "off"
+					},
+					"complexity": {
+						"noArguments": "off"
+					}
+				}
+			}
+		}
+	]
+}
