@@ -58,85 +58,6 @@ Compila o React + CSS para `dist/`. Útil se você quiser servir o frontend por 
 
 ---
 
-## Container (Docker/Podman)
-
-O `Containerfile` usa `oven/bun:1-alpine` como base.
-
-```dockerfile
-FROM oven/bun:1-alpine
-WORKDIR /app
-COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile --production=false
-COPY . .
-ENV NODE_ENV=production
-ARG PORT=3000
-ENV PORT=${PORT}
-EXPOSE ${PORT}
-CMD ["bun", "src/index.ts"]
-```
-
-### Build e execução
-
-```bash
-# Build da imagem
-docker build -f Containerfile -t senai-cursos .
-
-# Executar na porta 3010 (mapeando container:3000 → host:3010)
-docker run -p 3010:3000 senai-cursos
-
-# Ou com PORT customizado
-docker build --build-arg PORT=8080 -f Containerfile -t senai-cursos .
-docker run -p 8080:8080 -e PORT=8080 senai-cursos
-```
-
-### Sincronização de porta
-
-O `Containerfile` usa `ARG PORT=3000` enquanto `config/config.ts` usa `3010` como padrão. Ao fazer deploy via container, **passe `PORT` explicitamente** para manter consistência:
-
-```bash
-docker run -e PORT=3000 -p 3000:3000 senai-cursos
-```
-
----
-
-## Serviço Systemd (Linux)
-
-Um arquivo de unidade systemd está disponível em `systemd/senai-cursos.service`.
-
-### Instalação
-
-```bash
-# 1. Copie o arquivo de serviço para a pasta do systemd
-sudo cp systemd/senai-cursos.service /etc/systemd/system/senai-cursos.service
-
-# 2. Recarregue os daemons do systemd
-sudo systemctl daemon-reload
-
-# 3. Habilite o serviço para iniciar no boot
-sudo systemctl enable senai-cursos
-
-# 4. Inicie o serviço
-sudo systemctl start senai-cursos
-
-# 5. Verifique o status
-sudo systemctl status senai-cursos
-```
-
-### Comandos úteis
-
-```bash
-# Ver logs em tempo real
-journalctl -u senai-cursos -f
-
-# Reiniciar o serviço
-sudo systemctl restart senai-cursos
-
-# Parar o serviço
-sudo systemctl stop senai-cursos
-```
-
----
-
 ## Comportamento na inicialização
 
 Ao iniciar, o servidor passa pelas seguintes fases:
@@ -181,4 +102,4 @@ Todas as dependências estão em `dependencies` (não `devDependencies`) porque 
 | `class-variance-authority` | Variantes de classes CSS tipadas |
 | `clsx` + `tailwind-merge` | Merge de classes condicional sem conflitos |
 | `tw-animate-css` | Animações Tailwind adicionais |
-| `@biomejs/biome` | Linter + formatter (substitui ESLint + Prettier) |
+| `@biomejs/biome` | Linter + formatter |
