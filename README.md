@@ -52,18 +52,6 @@ Ou use variáveis de ambiente:
 PORT=8080 bun start
 ```
 
-## Container
-
-```sh
-# Build
-docker build -f Containerfile -t senai-cursos .
-
-# Run (PORT deve coincidir com o ARG do Containerfile)
-docker run -p 3010:3000 -e PORT=3000 senai-cursos
-```
-
-> **Atenção:** o `Containerfile` tem `ARG PORT=3000` enquanto o `config.ts` padrão usa `3010`. Ao fazer deploy via container, passe `PORT=3000` como variável de ambiente ou ajuste o `ARG`.
-
 ## Documentação completa
 
 | Documento | Conteúdo |
@@ -72,11 +60,10 @@ docker run -p 3010:3000 -e PORT=3000 senai-cursos
 | [API HTTP](docs/api.md) | Referência de todos os endpoints |
 | [Motor de raspagem](docs/scraping.md) | Como o SENAI é raspado, filtros, parsing |
 | [Frontend React](docs/frontend.md) | Componentes, hooks, estado, animações |
-| [Deploy e configuração](docs/deployment.md) | Container, variáveis de ambiente, produção |
 
 ## Tecnologias
 
 - **Runtime**: [Bun](https://bun.sh) — servidor HTTP + bundler integrado
 - **Frontend**: React 19, Tailwind CSS v4, lucide-react
-- **Linting/Formatting**: [Biome](https://biomejs.dev) (substitui ESLint + Prettier)
+- **Linting/Formatting**: [Biome](https://biomejs.dev)
 - **CSS utilities**: shadcn/ui (button, card), class-variance-authority, tailwind-merge
