@@ -35,57 +35,106 @@
 	--color-popover: var(--popover);
 	--color-card-foreground: var(--card-foreground);
 	--color-card: var(--card);
+	/* Frutiger Aero semantic tokens — see the big comment block below for the
+	   design language these serve (bright glossy glass, not Windows chrome). */
+	--color-ink: var(--ink);
+	--color-glass: var(--glass);
+	--color-brand: var(--brand);
+	--color-brand-light: var(--brand-light);
+	--color-brand-dark: var(--brand-dark);
+	--color-accent2: var(--accent2);
+	--color-accent2-light: var(--accent2-light);
+	--color-accent2-dark: var(--accent2-dark);
 	--radius-sm: calc(var(--radius) - 4px);
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);
 	--radius-xl: calc(var(--radius) + 4px);
+	--font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;
 }
 
-/* ── Aero Vermelho – dark red glass theme ── */
+/* ════════════════════════════════════════════════════════════════════════
+   FRUTIGER AERO — bright glossy-glass design language (2004–2012 web/OS-app
+   aesthetic: Mac OS X Aqua, Web 2.0 "candy" buttons, Skype/MSN Messenger,
+   iTunes, Windows Media Player skins, T-Mobile/O2 bubble ads). Recolored per
+   state via --brand-hue, but the page's own atmosphere — the sky gradient,
+   floating bubbles, light beams — is a fixed cyan-blue identity (--sky-hue),
+   which is what actually reads as "Frutiger Aero" at a glance.
+
+   Deliberately not a literal OS shell — no title bars, no taskbar, no Start
+   orb, no window chrome, no Segoe/Windows wordmarks. This is a single glass
+   dashboard, styled dark and glossy in the spirit of Vista's own Aero Glass
+   (per the user's own direction — smoky, translucent, blue-black, specular),
+   not a recreation of Windows' UI shell itself.
+════════════════════════════════════════════════════════════════════════ */
+
 :root {
-	--radius: 0.75rem;
+	--radius: 1.1rem;
+	/* OKLCH hue (0-360) for brand chrome (buttons, glow, active states) — set
+	   per state from src/state-meta.ts. The page's atmosphere hue is separate
+	   (--sky-hue below) so every state still reads as one coherent site. */
+	--brand-hue: 20;
+	--sky-hue: 205;
 
-	--background: oklch(0.06 0.025 15);
-	--foreground: oklch(0.95 0.01 20);
+	--ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+	--ease-glass: cubic-bezier(0.16, 1, 0.3, 1);
 
-	--card: oklch(0.11 0.035 15);
-	--card-foreground: oklch(0.95 0.01 20);
+	/* Ink — near-white body text, legible on smoky dark glass. */
+	--ink: oklch(0.96 0.012 var(--sky-hue));
+	/* Glass — pure white, used only for specular highlights/gloss/rim-light. */
+	--glass: oklch(1 0 0);
 
-	--popover: oklch(0.11 0.035 15);
-	--popover-foreground: oklch(0.95 0.01 20);
+	/* Brand — the state's own hue, used for buttons, active chips, glows. */
+	--brand: oklch(0.62 0.2 var(--brand-hue));
+	--brand-light: oklch(0.8 0.14 var(--brand-hue));
+	--brand-dark: oklch(0.42 0.19 var(--brand-hue));
 
-	--primary: oklch(0.58 0.22 25);
-	--primary-foreground: oklch(0.98 0.005 25);
+	/* Accent2 — fixed aqua/teal, used for the "paid courses" tier + info states,
+	   so that distinction stays legible regardless of which state is selected. */
+	--accent2: oklch(0.66 0.14 200);
+	--accent2-light: oklch(0.82 0.12 200);
+	--accent2-dark: oklch(0.46 0.14 200);
 
-	--secondary: oklch(0.16 0.045 15);
-	--secondary-foreground: oklch(0.88 0.015 20);
+	--background: oklch(0.09 0.03 var(--sky-hue));
+	--foreground: var(--ink);
 
-	--muted: oklch(0.16 0.045 15);
-	--muted-foreground: oklch(0.6 0.05 18);
+	--card: oklch(0.16 0.045 var(--sky-hue));
+	--card-foreground: var(--ink);
 
-	--accent: oklch(0.22 0.07 20);
-	--accent-foreground: oklch(0.92 0.01 20);
+	--popover: oklch(0.15 0.045 var(--sky-hue));
+	--popover-foreground: var(--ink);
 
-	--destructive: oklch(0.55 0.22 25);
+	--primary: var(--brand);
+	--primary-foreground: oklch(0.99 0.005 var(--brand-hue));
 
-	--border: oklch(0.3 0.06 15 / 0.35);
-	--input: oklch(0.16 0.045 15);
-	--ring: oklch(0.58 0.22 25);
+	--secondary: oklch(0.2 0.04 var(--sky-hue));
+	--secondary-foreground: var(--ink);
 
-	--chart-1: oklch(0.6 0.22 25);
-	--chart-2: oklch(0.65 0.18 18);
-	--chart-3: oklch(0.5 0.2 30);
-	--chart-4: oklch(0.72 0.14 12);
-	--chart-5: oklch(0.42 0.16 35);
+	--muted: oklch(0.19 0.04 var(--sky-hue));
+	--muted-foreground: oklch(0.68 0.03 var(--sky-hue));
 
-	--sidebar: oklch(0.09 0.03 15);
-	--sidebar-foreground: oklch(0.9 0.01 20);
-	--sidebar-primary: oklch(0.58 0.22 25);
-	--sidebar-primary-foreground: oklch(0.98 0.005 25);
-	--sidebar-accent: oklch(0.16 0.045 15);
-	--sidebar-accent-foreground: oklch(0.88 0.015 20);
-	--sidebar-border: oklch(0.3 0.06 15 / 0.3);
-	--sidebar-ring: oklch(0.58 0.22 25);
+	--accent: oklch(0.3 0.09 var(--brand-hue));
+	--accent-foreground: var(--ink);
+
+	--destructive: oklch(0.62 0.22 25);
+
+	--border: oklch(0.75 0.05 var(--sky-hue) / 0.2);
+	--input: oklch(0.18 0.045 var(--sky-hue));
+	--ring: var(--brand);
+
+	--chart-1: oklch(0.68 0.19 var(--brand-hue));
+	--chart-2: oklch(0.68 0.13 200);
+	--chart-3: oklch(0.75 0.15 140);
+	--chart-4: oklch(0.75 0.16 60);
+	--chart-5: oklch(0.68 0.18 320);
+
+	--sidebar: oklch(0.12 0.035 var(--sky-hue));
+	--sidebar-foreground: var(--ink);
+	--sidebar-primary: var(--brand);
+	--sidebar-primary-foreground: oklch(0.99 0.005 var(--brand-hue));
+	--sidebar-accent: oklch(0.2 0.04 var(--sky-hue));
+	--sidebar-accent-foreground: var(--ink);
+	--sidebar-border: oklch(0.75 0.05 var(--sky-hue) / 0.16);
+	--sidebar-ring: var(--brand);
 }
 
 @layer base {
@@ -94,6 +143,18 @@
 	}
 	body {
 		@apply bg-background text-foreground;
+	}
+}
+
+/* Respect the OS/browser motion preference — cuts continuous GPU/CPU work
+   (bubble rise, orb drift, gloss shimmer, logo float) down to near-instant. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.001ms !important;
 	}
 }
 
@@ -159,48 +220,102 @@
 	}
 }
 
-@keyframes shimmer-sweep {
-	0% {
-		background-position: -200% 0;
-	}
+/* Slow diagonal sway for the fixed light beams — reverses smoothly, so unlike
+   a scrolling sweep it never needs a jump-cut to loop. Transform-only. */
+@keyframes ray-sway-1 {
+	0%,
 	100% {
-		background-position: 200% 0;
+		transform: translate(-4%, -2%) rotate(-16deg);
+	}
+	50% {
+		transform: translate(4%, 3%) rotate(-13deg);
+	}
+}
+@keyframes ray-sway-2 {
+	0%,
+	100% {
+		transform: translate(3%, 2%) rotate(-21deg);
+	}
+	50% {
+		transform: translate(-5%, -3%) rotate(-24deg);
 	}
 }
 
+/* A soap-bubble rising from below the fold, drifting sideways, fading in then
+   out — the single most iconic Frutiger Aero motif. Transform/opacity only. */
+@keyframes bubble-rise {
+	0% {
+		transform: translate(0, 0) scale(0.7);
+		opacity: 0;
+	}
+	12% {
+		opacity: 1;
+	}
+	85% {
+		opacity: 0.7;
+	}
+	100% {
+		transform: translate(var(--bubble-drift, 30px), -115vh) scale(1.15);
+		opacity: 0;
+	}
+}
+
+/* The 3-value list matches .glass-card's 3 background layers (shimmer, gloss
+   cap, base fill) — only the first (the shimmer layer) is meant to move.
+   Elements with a single background layer (e.g. the plain progress-bar fill
+   using this same keyframe) simply ignore the extra values — not an error,
+   per how CSS resolves a background-position list longer than the element's
+   own layer count. */
+@keyframes shimmer-sweep {
+	0% {
+		background-position:
+			-200% 0,
+			0 0,
+			0 0;
+	}
+	100% {
+		background-position:
+			200% 0,
+			0 0,
+			0 0;
+	}
+}
+
+/* The glass panel's soft ambient halo, breathing slowly — same mechanism as
+   before, recolored: a bright rim-light instead of a dark glow. */
 @keyframes glow-breathe {
 	0%,
 	100% {
 		box-shadow:
-			0 0 0 1px oklch(0.65 0.08 20 / 0.08) inset,
-			0 1px 0 oklch(0.8 0.04 20 / 0.1) inset,
-			0 8px 32px oklch(0.1 0.03 15 / 0.6),
-			0 0 20px oklch(0.45 0.18 20 / 0.1);
+			0 1px 0 oklch(0.85 0.04 var(--sky-hue) / 0.4) inset,
+			0 -14px 26px oklch(0 0 0 / 0.25) inset,
+			0 10px 26px oklch(0 0 0 / 0.45),
+			0 0 22px oklch(0.6 0.2 var(--brand-hue) / 0.14);
 	}
 	50% {
 		box-shadow:
-			0 0 0 1px oklch(0.65 0.08 20 / 0.14) inset,
-			0 1px 0 oklch(0.8 0.04 20 / 0.15) inset,
-			0 8px 40px oklch(0.1 0.03 15 / 0.65),
-			0 0 35px oklch(0.45 0.18 20 / 0.18);
+			0 1px 0 oklch(0.9 0.04 var(--sky-hue) / 0.55) inset,
+			0 -14px 26px oklch(0 0 0 / 0.3) inset,
+			0 12px 34px oklch(0 0 0 / 0.55),
+			0 0 38px oklch(0.6 0.22 var(--brand-hue) / 0.26);
 	}
 }
 
-@keyframes pulse-ring-red {
+@keyframes pulse-ring-brand {
 	0% {
 		box-shadow:
-			0 0 0 0 rgba(220, 38, 38, 0.4),
-			0 0 20px rgba(185, 28, 28, 0.15);
+			0 0 0 0 oklch(0.58 0.2 var(--brand-hue) / 0.35),
+			0 0 20px oklch(0.55 0.18 var(--brand-hue) / 0.12);
 	}
 	60% {
 		box-shadow:
-			0 0 0 8px rgba(220, 38, 38, 0),
-			0 0 30px rgba(185, 28, 28, 0.25);
+			0 0 0 8px oklch(0.58 0.2 var(--brand-hue) / 0),
+			0 0 30px oklch(0.55 0.18 var(--brand-hue) / 0.22);
 	}
 	100% {
 		box-shadow:
-			0 0 0 0 rgba(220, 38, 38, 0),
-			0 0 20px rgba(185, 28, 28, 0.15);
+			0 0 0 0 oklch(0.58 0.2 var(--brand-hue) / 0),
+			0 0 20px oklch(0.55 0.18 var(--brand-hue) / 0.12);
 	}
 }
 
@@ -211,20 +326,6 @@
 	}
 	50% {
 		transform: translateY(-5px) rotate(0.3deg);
-	}
-}
-
-@keyframes icon-spin-idle {
-	0%,
-	85%,
-	100% {
-		transform: rotate(0deg);
-	}
-	90% {
-		transform: rotate(15deg);
-	}
-	95% {
-		transform: rotate(-8deg);
 	}
 }
 
@@ -245,10 +346,10 @@
 		opacity: 0;
 	}
 	10% {
-		opacity: 0.5;
+		opacity: 0.6;
 	}
 	90% {
-		opacity: 0.5;
+		opacity: 0.6;
 	}
 	100% {
 		transform: translateY(400%);
@@ -257,24 +358,38 @@
 }
 
 /* ════════════════════════════════════════
-   BACKGROUND ORBS
+   SKY BACKGROUND — bright, static gradient (kept un-animated on purpose: a
+   continuously animated background-position repaints every frame, which is
+   real GPU/CPU cost across every browser engine; all the "life" instead comes
+   from the child layers below, which only ever animate transform/opacity —
+   compositor-only, cheap on Blink, Gecko and WebKit alike).
 ════════════════════════════════════════ */
 
 .aero-root {
-	background-color: var(--background);
 	position: relative;
 	overflow-x: hidden;
+	background: linear-gradient(
+		165deg,
+		oklch(0.2 0.06 var(--sky-hue)) 0%,
+		oklch(0.13 0.05 calc(var(--sky-hue) + 12)) 32%,
+		oklch(0.08 0.035 calc(var(--sky-hue) + 22)) 65%,
+		oklch(0.045 0.02 230) 100%
+	);
 }
 
+/* Soft brand-tinted blooms — a "screen" blend adds glowing light on top of
+   the near-black base, the same mechanism Vista's own Aero backdrop used
+   for its soft color blooms behind the glass. */
 .aero-bg-glow {
 	position: fixed;
 	inset: 0;
 	pointer-events: none;
 	z-index: 0;
+	mix-blend-mode: screen;
 	background:
-		radial-gradient(ellipse 80% 50% at 20% 10%, oklch(0.25 0.12 20 / 0.18) 0%, transparent 60%),
-		radial-gradient(ellipse 60% 40% at 80% 80%, oklch(0.2 0.1 15 / 0.14) 0%, transparent 55%),
-		radial-gradient(ellipse 100% 100% at 50% 50%, oklch(0.08 0.03 15 / 0.8) 0%, transparent 100%);
+		radial-gradient(ellipse 80% 50% at 18% 8%, oklch(0.4 0.16 var(--brand-hue) / 0.55) 0%, transparent 60%),
+		radial-gradient(ellipse 60% 45% at 85% 85%, oklch(0.35 0.14 200 / 0.45) 0%, transparent 55%),
+		radial-gradient(ellipse 100% 100% at 50% 30%, oklch(0.22 0.05 var(--sky-hue) / 0.6) 0%, transparent 100%);
 }
 
 .aero-orb {
@@ -282,83 +397,150 @@
 	border-radius: 50%;
 	pointer-events: none;
 	z-index: 0;
+	mix-blend-mode: screen;
 }
 
 .aero-orb-1 {
-	width: 600px;
-	height: 600px;
-	top: -150px;
-	left: -150px;
-	background: radial-gradient(circle, oklch(0.38 0.2 18 / 0.18) 0%, transparent 70%);
-	filter: blur(70px);
-	animation: orb-drift-1 14s ease-in-out infinite;
+	width: 620px;
+	height: 620px;
+	top: -160px;
+	left: -160px;
+	background: radial-gradient(circle, oklch(0.5 0.2 var(--brand-hue) / 0.6) 0%, transparent 70%);
+	filter: blur(75px);
+	animation: orb-drift-1 16s ease-in-out infinite;
 }
 
 .aero-orb-2 {
-	width: 500px;
-	height: 500px;
-	bottom: -120px;
-	right: -120px;
-	background: radial-gradient(circle, oklch(0.3 0.16 12 / 0.16) 0%, transparent 70%);
-	filter: blur(80px);
-	animation: orb-drift-2 18s ease-in-out infinite;
+	width: 520px;
+	height: 520px;
+	bottom: -130px;
+	right: -130px;
+	background: radial-gradient(circle, oklch(0.45 0.15 200 / 0.5) 0%, transparent 70%);
+	filter: blur(85px);
+	animation: orb-drift-2 20s ease-in-out infinite;
 }
 
 .aero-orb-3 {
-	width: 350px;
-	height: 350px;
+	width: 360px;
+	height: 360px;
 	top: 45%;
 	left: 55%;
-	background: radial-gradient(circle, oklch(0.42 0.14 25 / 0.12) 0%, transparent 70%);
-	filter: blur(60px);
-	animation: orb-drift-3 22s ease-in-out infinite;
+	background: radial-gradient(circle, oklch(0.5 0.14 var(--brand-hue) / 0.4) 0%, transparent 70%);
+	filter: blur(65px);
+	animation: orb-drift-3 24s ease-in-out infinite;
+}
+
+/* Two fixed, soft diagonal light beams — the "sunlight through glass" look,
+   even more pronounced against a dark backdrop — gently swaying rather than
+   sweeping, so they never need a loop jump-cut. */
+.aero-rays {
+	position: fixed;
+	inset: -20%;
+	pointer-events: none;
+	z-index: 0;
+	overflow: hidden;
+	mix-blend-mode: screen;
+}
+.aero-rays::before,
+.aero-rays::after {
+	content: "";
+	position: absolute;
+	width: 55%;
+	height: 220%;
+	background: linear-gradient(
+		90deg,
+		transparent 0%,
+		oklch(0.75 0.06 var(--sky-hue) / 0.3) 45%,
+		oklch(0.7 0.05 var(--sky-hue) / 0.14) 55%,
+		transparent 100%
+	);
+	filter: blur(2px);
+}
+.aero-rays::before {
+	top: -40%;
+	left: 4%;
+	animation: ray-sway-1 26s ease-in-out infinite;
+}
+.aero-rays::after {
+	top: -60%;
+	left: 55%;
+	width: 40%;
+	animation: ray-sway-2 32s ease-in-out infinite;
+}
+
+/* Floating soap-bubble particles — small glassy circles with a rim-light and
+   a bright specular dot, rising slowly. Positions/timings are supplied via
+   inline custom properties from AeroBubbles in App.tsx (deterministic, not
+   randomized per-render, so there is no hydration/re-render jitter). Bright
+   translucent bubbles read even more clearly against a dark sky than a light
+   one — no recoloring needed here, only the rim-shadow was darkened further. */
+.aero-bubbles {
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	z-index: 0;
+	overflow: hidden;
+}
+.aero-bubble {
+	position: absolute;
+	bottom: -10vh;
+	left: var(--bubble-left, 10%);
+	width: var(--bubble-size, 22px);
+	height: var(--bubble-size, 22px);
+	border-radius: 50%;
+	background: radial-gradient(
+		circle at 32% 28%,
+		oklch(1 0 0 / 0.95) 0%,
+		oklch(1 0 0 / 0.4) 22%,
+		oklch(0.7 0.06 var(--sky-hue) / 0.12) 60%,
+		oklch(0.6 0.08 var(--sky-hue) / 0.3) 100%
+	);
+	box-shadow:
+		0 0 0 1px oklch(1 0 0 / 0.45) inset,
+		0 2px 8px oklch(0 0 0 / 0.35);
+	animation: bubble-rise var(--bubble-duration, 24s) linear infinite;
+	animation-delay: var(--bubble-delay, 0s);
 }
 
 /* ════════════════════════════════════════
-   GLASS CARD
+   GLASS PANEL — the core "Aero glass" surface: bright, translucent, with a
+   strong specular highlight band across the top (the defining feature of
+   Aqua/Aero-era chrome) and a slow ambient breathe. Recolored dark/smoky —
+   Vista's own Aero Glass was translucent charcoal-blue, not white, with the
+   same bright top specular edge — per the user's explicit direction. Class
+   name kept as `.glass-card` for a minimal diff against existing markup.
 ════════════════════════════════════════ */
 
+/* All decoration below (gloss cap + shimmer streak) is painted as extra
+   `background` layers on the card itself rather than via ::before/::after.
+   A background is always the bottom-most paint layer of a box — behind every
+   child, static or positioned — whereas an absolutely-positioned pseudo-
+   element is a *positioned* box and, per the CSS stacking rules, positioned
+   content paints above plain static content regardless of z-index or DOM
+   order. Popover lists and card text are static children, so a decorative
+   ::before/::after here would silently wash them out; folding the same
+   visual into `background` sidesteps that class of bug entirely. */
 .glass-card {
 	position: relative;
 	overflow: hidden;
-	background: oklch(0.12 0.04 15 / 0.55);
-	backdrop-filter: blur(20px) saturate(1.5);
-	-webkit-backdrop-filter: blur(20px) saturate(1.5);
-	border: 1px solid oklch(0.45 0.1 20 / 0.18);
-	box-shadow:
-		0 0 0 1px oklch(0.65 0.08 20 / 0.06) inset,
-		0 1px 0 0 oklch(0.8 0.04 20 / 0.08) inset,
-		0 8px 32px oklch(0.1 0.03 15 / 0.6);
+	background:
+		linear-gradient(115deg, transparent 35%, oklch(1 0 0 / 0.16) 50%, transparent 65%) 0 0 / 250% 100%
+			no-repeat,
+		linear-gradient(180deg, oklch(1 0 0 / 0.22) 0%, oklch(1 0 0 / 0.04) 40%, transparent 55%, transparent 100%),
+		linear-gradient(
+			180deg,
+			oklch(0.24 0.055 var(--sky-hue) / 0.62) 0%,
+			oklch(0.12 0.04 var(--sky-hue) / 0.72) 100%
+		);
+	backdrop-filter: blur(22px) saturate(1.6);
+	-webkit-backdrop-filter: blur(22px) saturate(1.6);
+	border: 1px solid oklch(0.8 0.05 var(--sky-hue) / 0.3);
 	transition:
 		transform 0.15s ease,
 		box-shadow 0.15s ease;
-	animation: glow-breathe 6s ease-in-out infinite;
-}
-
-/* Shimmer sweep */
-.glass-card::before {
-	content: "";
-	position: absolute;
-	inset: 0;
-	border-radius: inherit;
-	background: linear-gradient(108deg, transparent 38%, oklch(1 0 0 / 0.045) 50%, transparent 62%);
-	background-size: 220% 100%;
-	animation: shimmer-sweep 5s ease-in-out infinite;
-	pointer-events: none;
-	z-index: 1;
-}
-
-/* Top highlight edge */
-.glass-card::after {
-	content: "";
-	position: absolute;
-	top: 0;
-	left: 10%;
-	right: 10%;
-	height: 1px;
-	background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.18), transparent);
-	pointer-events: none;
-	z-index: 1;
+	animation:
+		glow-breathe 7s ease-in-out infinite,
+		shimmer-sweep 6.5s ease-in-out infinite;
 }
 
 /* Scan line on the chart card */
@@ -370,10 +552,127 @@
 	position: absolute;
 	inset-inline: 0;
 	height: 2px;
-	background: linear-gradient(90deg, transparent, rgba(220, 38, 38, 0.25), transparent);
+	background: linear-gradient(90deg, transparent, oklch(0.6 0.2 var(--brand-hue) / 0.4), transparent);
 	animation: scan-line 7s ease-in-out infinite;
 	pointer-events: none;
 	z-index: 2;
+}
+
+/* ════════════════════════════════════════
+   GLOSSY AQUA BUTTON — a rounded-pill "candy button" with an elliptical top
+   highlight, the classic Aqua/Web-2.0 button convention (distinct in shape
+   and highlight geometry from Vista/Longhorn's rectangular glass buttons).
+════════════════════════════════════════ */
+
+/* The gloss highlight is a soft top-to-bottom fade folded into the button's
+   own `background` (same technique as .glass-card, see the comment there) —
+   a separate ::before shaped with an elliptical border-radius looked fine at
+   large sizes, but on a short button (e.g. size="sm", 32px tall) its curved
+   bottom edge became a visible hard seam across the fill. A plain fade has
+   no edge to begin with, so it stays smooth at any button size. */
+.aero-button {
+	position: relative;
+	overflow: hidden;
+	border-radius: 999px;
+	background:
+		linear-gradient(180deg, oklch(1 0 0 / 0.55) 0%, oklch(1 0 0 / 0.14) 42%, transparent 60%, transparent 100%),
+		linear-gradient(180deg, var(--brand-light) 0%, var(--brand) 55%, var(--brand-dark) 100%);
+	border: 1px solid oklch(0.4 0.16 var(--brand-hue) / 0.55);
+	box-shadow:
+		0 1px 0 oklch(1 0 0 / 0.55) inset,
+		0 10px 22px oklch(0.4 0.16 var(--brand-hue) / 0.35),
+		0 2px 5px oklch(0.3 0.12 var(--brand-hue) / 0.3);
+	transition:
+		transform 0.15s var(--ease-spring),
+		box-shadow 0.15s ease,
+		filter 0.15s ease;
+}
+.aero-button:hover:not(:disabled) {
+	filter: brightness(1.08);
+	transform: translateY(-1px);
+}
+.aero-button:active:not(:disabled) {
+	filter: brightness(0.94);
+	transform: translateY(0) scale(0.97);
+}
+.aero-button:disabled {
+	filter: saturate(0.5) brightness(1.05);
+	cursor: not-allowed;
+}
+
+/* ════════════════════════════════════════
+   3D POPOVER (dropdowns) — a glass panel materializing with a gentle tilt.
+   Mounted only while open/closing (see usePopoverPhase in App.tsx) — the
+   glass panel carries a continuous backdrop-filter blur + shimmer/breathe
+   animation, real ongoing GPU/paint cost even at opacity:0, so it must NOT
+   sit in the DOM permanently. `animation` (not `transition`) is used so the
+   very first mount still plays the "from" frame. Only `transform`/`opacity`
+   are animated — compositor-only, consistent across Firefox-based (Zen),
+   Blink (Chrome/Edge) and WebKit engines.
+════════════════════════════════════════ */
+
+.popover-3d {
+	transform-origin: top center;
+}
+
+@keyframes popover-in {
+	from {
+		opacity: 0;
+		transform: perspective(700px) rotateX(-14deg) translateY(-8px) scale(0.94);
+	}
+	to {
+		opacity: 1;
+		transform: perspective(700px) rotateX(0deg) translateY(0) scale(1);
+	}
+}
+
+@keyframes popover-out {
+	from {
+		opacity: 1;
+		transform: perspective(700px) rotateX(0deg) translateY(0) scale(1);
+	}
+	to {
+		opacity: 0;
+		transform: perspective(700px) rotateX(-10deg) translateY(-6px) scale(0.96);
+	}
+}
+
+.popover-3d[data-state="open"] {
+	animation: popover-in 0.22s var(--ease-spring) both;
+}
+
+.popover-3d[data-state="closing"] {
+	animation: popover-out 0.16s var(--ease-spring) both;
+	pointer-events: none;
+}
+
+@keyframes popover-item-in {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.popover-3d[data-state="open"] .popover-item {
+	animation: popover-item-in 0.28s var(--ease-glass) both;
+}
+
+/* Trigger buttons: subtle press/hover feedback + icon rotation on open. */
+.popover-trigger {
+	transition: transform 0.15s var(--ease-spring);
+}
+.popover-trigger:active {
+	transform: scale(0.97);
+}
+.popover-trigger-icon {
+	transition: transform 0.25s var(--ease-spring);
+}
+.popover-trigger[data-state="open"] .popover-trigger-icon {
+	transform: rotate(180deg);
 }
 
 /* ════════════════════════════════════════
@@ -381,7 +680,7 @@
 ════════════════════════════════════════ */
 
 .section-3d {
-	animation: fade-up-3d 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+	animation: fade-up-3d 0.55s var(--ease-glass) both;
 }
 
 .section-3d-1 {
@@ -412,9 +711,43 @@
 	transform: scale(1.15) rotate(-5deg);
 }
 
+/* Frutiger-Aero "orb" icon badge — a glossy sphere (Aqua/Vista sidebar-icon
+   convention) instead of a flat tinted square: a saturated brand-hue sphere
+   with a bright specular cap up top, a soft inner shadow along the bottom
+   rim (gives it roundness), and a blurred ellipse highlight layered on top
+   for the glassy "bubble" sheen — same visual family as .aero-bubble, sized
+   up and opaque so the Lucide icon reads clearly against it. */
+.aero-icon-orb {
+	position: relative;
+	overflow: hidden;
+	background:
+		radial-gradient(circle at 30% 24%, oklch(1 0 0 / 0.95) 0%, oklch(1 0 0 / 0.4) 14%, transparent 42%),
+		linear-gradient(
+			180deg,
+			oklch(0.72 0.19 var(--brand-hue) / 1) 0%,
+			oklch(0.54 0.21 var(--brand-hue) / 1) 55%,
+			oklch(0.34 0.17 var(--brand-hue) / 1) 100%
+		);
+	box-shadow:
+		0 1px 0 oklch(1 0 0 / 0.6) inset,
+		0 -7px 11px oklch(0.15 0.09 var(--brand-hue) / 0.55) inset,
+		0 4px 12px oklch(0.15 0.1 var(--brand-hue) / 0.5),
+		0 0 0 1px oklch(0.9 0.04 var(--brand-hue) / 0.4);
+}
+.aero-icon-orb::after {
+	content: "";
+	position: absolute;
+	inset: 8% 20% auto 20%;
+	height: 30%;
+	border-radius: 50%;
+	background: linear-gradient(180deg, oklch(1 0 0 / 0.8) 0%, oklch(1 0 0 / 0) 100%);
+	filter: blur(0.6px);
+	pointer-events: none;
+}
+
 /* Highlighted card pulse */
 .card-highlight {
-	animation: pulse-ring-red 3.5s ease-in-out infinite;
+	animation: pulse-ring-brand 3.5s ease-in-out infinite;
 }
 
 /* ════════════════════════════════════════
@@ -436,4 +769,91 @@
 
 .logo-float {
 	animation: logo-float 5s ease-in-out infinite;
+}
+
+/* ════════════════════════════════════════
+   INLINE ICON GLINT — the small Lucide glyphs sitting in pills, the header,
+   and course rows (search/pin/globe/clock/calendar) are just flat
+   currentColor strokes, unlike the big glossy .aero-icon-orb badges. A full
+   orb would be too heavy at this size, so instead each gets a 3-layer
+   drop-shadow stack — the same trick .logo-float already uses, just built
+   out into a full bevel: a crisp bright rim-light above (like a light
+   catching a glossy surface), a soft dark shadow below for depth, and an
+   outer glow in the current --brand-hue. `drop-shadow` (not `box-shadow`)
+   is required here since it follows the actual stroke silhouette rather
+   than a bounding box, so it reads as a lit icon, not a lit square. */
+.aero-icon-glint {
+	filter: drop-shadow(0 -0.5px 0 oklch(1 0 0 / 0.65))
+		drop-shadow(0 1px 1px oklch(0.15 0.06 var(--brand-hue) / 0.5))
+		drop-shadow(0 0 3px oklch(0.62 0.2 var(--brand-hue) / 0.45));
+}
+
+/* ════════════════════════════════════════
+   AERO CURSORS — static roles (see src/lib/cursors.ts for the animated
+   busy/working/unavailable/wagtail roles, injected as their own <style>).
+   Tailwind's own cursor-* utilities (and the browser's UA default for
+   <a>/<button>/<input>) set `cursor` directly on the element itself, which
+   wins over anything inherited from an ancestor — so the plain Aero arrow
+   applied to .aero-root only reached elements with no cursor value of their
+   own. These rules re-target every such role explicitly instead.
+
+   The `body` prefix is a deliberate, minimal specificity bump (0,1,1) over
+   Tailwind's bare single-class utilities (0,1,0) so this always wins
+   regardless of stylesheet order — but it must stay BELOW ani-cursor's own
+   generated rules (`.cursor-busy-red:hover`-style, always (0,2,0) since that
+   library always appends `:hover`), so a state's colored cursor still wins
+   over these plain-role fallbacks on the same element. Each var() carries a
+   plain-keyword fallback for the (very unlikely) case JS hasn't set the
+   custom property yet. */
+body {
+	cursor: var(--cursor-arrow, auto);
+}
+body a,
+body button,
+body [role="button"],
+body select,
+body .cursor-pointer,
+body .popover-trigger {
+	cursor: var(--cursor-pointer, pointer);
+}
+body input,
+body textarea,
+body .cursor-text {
+	cursor: var(--cursor-text, text);
+}
+body .cursor-default {
+	cursor: var(--cursor-arrow, auto);
+}
+body [title],
+body .cursor-help {
+	cursor: var(--cursor-help, help);
+}
+body .cursor-move,
+body [draggable="true"] {
+	cursor: var(--cursor-move, move);
+}
+body .cursor-crosshair {
+	cursor: var(--cursor-crosshair, crosshair);
+}
+body .cursor-alias {
+	cursor: var(--cursor-alias, alias);
+}
+body .cursor-ns-resize {
+	cursor: var(--cursor-ns-resize, ns-resize);
+}
+body .cursor-ew-resize {
+	cursor: var(--cursor-ew-resize, ew-resize);
+}
+body .cursor-nwse-resize {
+	cursor: var(--cursor-nwse-resize, nwse-resize);
+}
+body .cursor-nesw-resize {
+	cursor: var(--cursor-nesw-resize, nesw-resize);
+}
+/* Wagtail has no resting state of its own — the pack ships it only as an
+   animated cursor, played via ani-cursor's own `:hover`-scoped rule (higher
+   specificity, wins while actually hovering); outside of hover this just
+   falls back to the plain arrow, not "pointer" (the logo isn't clickable). */
+body .cursor-wagtail {
+	cursor: var(--cursor-arrow, auto);
 }
