@@ -6,3 +6,4 @@ build/
 out/
 *.min.js
 *.min.css
+bun.lock

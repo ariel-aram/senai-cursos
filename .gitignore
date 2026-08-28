@@ -42,7 +42,6 @@ yarn-error.log*
 
 # IDE & Editor files
 .idea
-.vscode
 .claude
 *.swp
 *.swo

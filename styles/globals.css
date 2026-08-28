@@ -139,10 +139,11 @@
 
 @layer base {
 	* {
-		@apply border-border outline-ring/50;
+		border-color: var(--border);
 	}
 	body {
-		@apply bg-background text-foreground;
+		background-color: var(--background);
+		color: var(--foreground);
 	}
 }
 
@@ -532,9 +533,10 @@
 			oklch(0.24 0.055 var(--sky-hue) / 0.62) 0%,
 			oklch(0.12 0.04 var(--sky-hue) / 0.72) 100%
 		);
-	backdrop-filter: blur(22px) saturate(1.6);
 	-webkit-backdrop-filter: blur(22px) saturate(1.6);
-	border: 1px solid oklch(0.8 0.05 var(--sky-hue) / 0.3);
+	backdrop-filter: blur(22px) saturate(1.6);
+	border: 1px solid;
+	border-color: oklch(0.8 0.05 var(--sky-hue) / 0.3);
 	transition:
 		transform 0.15s ease,
 		box-shadow 0.15s ease;
@@ -577,7 +579,8 @@
 	background:
 		linear-gradient(180deg, oklch(1 0 0 / 0.55) 0%, oklch(1 0 0 / 0.14) 42%, transparent 60%, transparent 100%),
 		linear-gradient(180deg, var(--brand-light) 0%, var(--brand) 55%, var(--brand-dark) 100%);
-	border: 1px solid oklch(0.4 0.16 var(--brand-hue) / 0.55);
+	border: 1px solid;
+	border-color: oklch(0.4 0.16 var(--brand-hue) / 0.55);
 	box-shadow:
 		0 1px 0 oklch(1 0 0 / 0.55) inset,
 		0 10px 22px oklch(0.4 0.16 var(--brand-hue) / 0.35),

@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.5.10/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.5.11/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -70,6 +70,10 @@
 		}
 	},
 	"json": {
+		"parser": {
+			"allowTrailingCommas": true,
+			"allowComments": true
+		},
 		"formatter": {
 			"enabled": true,
 			"indentStyle": "tab"
@@ -77,7 +81,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["build.ts", "scripts/**", "src/index.ts", "src/db.ts"],
+			"includes": ["build.ts", "scripts/**", "src/index.ts", "src/db.ts", "src/adapters/**"],
 			"linter": {
 				"rules": {
 					"suspicious": {

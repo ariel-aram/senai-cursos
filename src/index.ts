@@ -27,7 +27,7 @@ function areaFromRequest(req: Request): string {
 const L1_TTL_MS = 5_000;
 const l1Cache = new Map<string, { body: string; status: number; ts: number }>();
 
-function l1Get(key: string): { body: string; status: number } | null {
+function _l1Get(key: string): { body: string; status: number } | null {
 	const entry = l1Cache.get(key);
 	if (!entry) return null;
 	if (Date.now() - entry.ts > L1_TTL_MS) {
@@ -37,7 +37,7 @@ function l1Get(key: string): { body: string; status: number } | null {
 	return { body: entry.body, status: entry.status };
 }
 
-function l1Set(key: string, body: string, status: number): void {
+function _l1Set(key: string, body: string, status: number): void {
 	l1Cache.set(key, { body, status, ts: Date.now() });
 	if (l1Cache.size > 500) {
 		const oldest = [...l1Cache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0];
@@ -45,14 +45,14 @@ function l1Set(key: string, body: string, status: number): void {
 	}
 }
 
-function l1Key(req: Request): string | null {
+function _l1Key(req: Request): string | null {
 	if (req.method !== "GET") return null;
 	const url = new URL(req.url);
 	if (!url.pathname.startsWith("/api/")) return null;
 	return `${url.pathname}?${url.searchParams.toString()}`;
 }
 
-function jsonResponse(data: unknown, cacheControl: string, status = 200): Response {
+function _jsonResponse(data: unknown, cacheControl: string, status = 200): Response {
 	return new Response(JSON.stringify(data), {
 		status,
 		headers: {

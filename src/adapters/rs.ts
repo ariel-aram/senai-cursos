@@ -79,7 +79,7 @@ async function buildEntries(): Promise<CatalogEntry[]> {
 	const entries: CatalogEntry[] = [];
 	for (const c of courses) {
 		const acf = c.acf;
-		if (!acf || acf.turmasabertas !== "S") continue;
+		if (acf?.turmasabertas !== "S") continue;
 		if (!acf.segmentoindustrial) continue;
 		const cidadeId = c.cidade?.[0];
 		const unitName = cidadeId ? cidadeMap.get(cidadeId) : undefined;

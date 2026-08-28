@@ -2,10 +2,14 @@
 
 @layer base {
 	:root {
-		@apply font-sans;
+		font-family: var(--font-sans);
 	}
 
 	body {
-		@apply min-w-[320px] min-h-screen m-0 bg-background text-foreground;
+		min-width: 320px;
+		min-height: 100vh;
+		margin: 0;
+		background-color: var(--background);
+		color: var(--foreground);
 	}
 }
