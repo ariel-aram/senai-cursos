@@ -353,6 +353,14 @@ interface TurmasResult {
 	prices: string[];
 }
 
+// SP marks "A Distância" (EAD, self-paced) turmas with an unlimited-capacity
+// sentinel instead of a real seat count — observed as 99988/99996 etc., never
+// a value that tracks real enrollment (same sentinel pattern documented in
+// ma.ts for that state's feed). Any parsed count at or above this threshold
+// is that sentinel, not a real number, so it's excluded from the vagas sum —
+// the turma itself is still counted so course/turma totals stay accurate.
+const VAGAS_SENTINEL_THRESHOLD = 9999;
+
 function parseTurmasHtml(html: string): TurmasResult {
 	let totalVagas = 0;
 	let turmaCount = 0;
@@ -360,7 +368,8 @@ function parseTurmasHtml(html: string): TurmasResult {
 	for (const m of html.matchAll(vagasRegex)) {
 		const count = m[1];
 		if (!count) continue;
-		totalVagas += parseInt(count, 10);
+		const parsed = parseInt(count, 10);
+		if (parsed < VAGAS_SENTINEL_THRESHOLD) totalVagas += parsed;
 		turmaCount++;
 	}
 

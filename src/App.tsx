@@ -147,6 +147,52 @@ function useTilt(strength = 10) {
 	return { ref, onMouseMove, onMouseLeave };
 }
 
+// Continuous mouse-follow 3D tilt + zoom for the clickable logo — rAF-batched
+// so rapid mousemove doesn't thrash layout, eased back to rest on leave
+// instead of snapping so the pop-out/pop-in both read as fluid, not abrupt.
+function useLogoTilt(strength = 16, scale = 1.16) {
+	const ref = useRef<HTMLAnchorElement>(null);
+	const rectRef = useRef<DOMRect | null>(null);
+	const rafRef = useRef<number | null>(null);
+	const pendingRef = useRef<{ x: number; y: number } | null>(null);
+
+	const applyFrame = useCallback(() => {
+		rafRef.current = null;
+		const el = ref.current;
+		const p = pendingRef.current;
+		if (!el || !p) return;
+		el.style.transform = `perspective(600px) scale(${scale}) rotateY(${p.x * strength}deg) rotateX(${-p.y * strength}deg) translateZ(8px)`;
+	}, [strength, scale]);
+
+	const onMouseMove = useCallback(
+		(e: React.MouseEvent<HTMLAnchorElement>) => {
+			const el = ref.current;
+			if (!el) return;
+			if (!rectRef.current) rectRef.current = el.getBoundingClientRect();
+			const rect = rectRef.current;
+			pendingRef.current = {
+				x: (e.clientX - rect.left) / rect.width - 0.5,
+				y: (e.clientY - rect.top) / rect.height - 0.5,
+			};
+			if (rafRef.current === null) rafRef.current = requestAnimationFrame(applyFrame);
+		},
+		[applyFrame],
+	);
+
+	const onMouseLeave = useCallback(() => {
+		rectRef.current = null;
+		pendingRef.current = null;
+		if (rafRef.current !== null) {
+			cancelAnimationFrame(rafRef.current);
+			rafRef.current = null;
+		}
+		const el = ref.current;
+		if (el) el.style.transform = "";
+	}, []);
+
+	return { ref, onMouseMove, onMouseLeave };
+}
+
 // Mounts a popover panel only while open or animating closed — a glass panel
 // carries a continuous backdrop-filter blur + shimmer animation, which is real
 // ongoing GPU/paint cost even at opacity:0, so it must not stay in the DOM
@@ -272,7 +318,7 @@ function UnitSearch({
 					{filtered.length === 0 ? (
 						<p className="px-4 py-3 text-sm text-ink/45 text-center">Nenhuma unidade encontrada</p>
 					) : (
-						<ul className="max-h-64 overflow-y-auto divide-y divide-ink/8">
+						<ul className="max-h-64 overflow-y-auto divide-y divide-ink/8 aero-scroll">
 							{filtered.map((u, i) => (
 								<li
 									key={u.id}
@@ -356,7 +402,7 @@ function StateSelector({
 					data-state={phase}
 					className="popover-3d absolute left-0 right-0 top-full mt-1.5 z-50 glass-card rounded-xl border border-ink/12 overflow-hidden shadow-2xl shadow-black/60"
 				>
-					<ul className="max-h-72 overflow-y-auto divide-y divide-ink/8">
+					<ul className="max-h-72 overflow-y-auto divide-y divide-ink/8 aero-scroll">
 						{states.map((s, i) => (
 							<li
 								key={s.uf}
@@ -454,7 +500,7 @@ function AreaSelector({
 					data-state={phase}
 					className="popover-3d absolute left-0 right-0 top-full mt-1.5 z-50 glass-card rounded-xl border border-ink/12 overflow-hidden shadow-2xl shadow-black/60"
 				>
-					<ul className="max-h-72 overflow-y-auto divide-y divide-ink/8">
+					<ul className="max-h-72 overflow-y-auto divide-y divide-ink/8 aero-scroll">
 						{areas.map((a, i) => (
 							<li
 								key={a.slug}
@@ -980,6 +1026,7 @@ export function App() {
 	const slowLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const headerTilt = useTilt(5);
+	const logoTilt = useLogoTilt();
 
 	// Recolor the glassmorphism gradient/glow to match the selected state's logo.
 	useEffect(() => {
@@ -1211,15 +1258,37 @@ export function App() {
 					style={{ transition: "transform 0.18s ease, box-shadow 0.18s ease" }}
 				>
 					<div className="flex items-center gap-4">
-						<img
-							src={currentState.logo}
-							alt={`SENAI ${currentState.name}`}
-							className={cn("h-10 w-auto logo-float", wagtailCursorClass())}
-							style={{
-								filter:
-									"drop-shadow(0 0 4px oklch(0.58 0.22 var(--brand-hue) / 0.55)) drop-shadow(0 0 10px oklch(0.5 0.2 var(--brand-hue) / 0.3))",
-							}}
-						/>
+						<a
+							ref={logoTilt.ref}
+							onMouseMove={logoTilt.onMouseMove}
+							onMouseLeave={logoTilt.onMouseLeave}
+							href={`https://${currentState.sourceLabel}`}
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label={`Abrir site oficial do SENAI ${currentState.name}`}
+							className="logo-link shrink-0"
+							onClick={(e) => e.stopPropagation()}
+						>
+							<img
+								src={currentState.logo}
+								alt={`SENAI ${currentState.name}`}
+								className={cn("h-10 w-auto logo-float", wagtailCursorClass())}
+								style={{
+									filter:
+										// A soft blur-based white contour (not hard offset duplicates — those
+										// double every fine internal stroke of a detailed mark into noisy
+										// artifacts) so dark-on-transparent marks like Minas Gerais' stay
+										// legible against the dark glass, then the brand-hue glow on top.
+										// SP's and DF's own logos need no contour — SP is a white wordmark
+										// on solid red, and DF's small flag icon has fine internal strokes
+										// that pick up visible artifacts even from the soft blur version.
+										(currentState.uf === "sp" || currentState.uf === "df"
+											? ""
+											: "drop-shadow(0 0 0.6px white) drop-shadow(0 0 0.6px white) drop-shadow(0 0 1.2px oklch(1 0 0 / 0.5)) ") +
+										"drop-shadow(0 0 4px oklch(0.58 0.22 var(--brand-hue) / 0.55)) drop-shadow(0 0 10px oklch(0.5 0.2 var(--brand-hue) / 0.3))",
+								}}
+							/>
+						</a>
 						<div>
 							<h1 className="text-lg font-bold text-ink tracking-tight leading-tight">
 								SENAI {isComingSoon ? currentState.name : selectedUnitName}

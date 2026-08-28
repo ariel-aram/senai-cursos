@@ -67,12 +67,21 @@
    not a recreation of Windows' UI shell itself.
 ════════════════════════════════════════════════════════════════════════ */
 
+/* Registered as a <number> so switching states transitions --brand-hue
+   smoothly instead of snapping — every oklch() using it repaints along. */
+@property --brand-hue {
+	syntax: "<number>";
+	inherits: true;
+	initial-value: 20;
+}
+
 :root {
 	--radius: 1.1rem;
 	/* OKLCH hue (0-360) for brand chrome (buttons, glow, active states) — set
 	   per state from src/state-meta.ts. The page's atmosphere hue is separate
 	   (--sky-hue below) so every state still reads as one coherent site. */
 	--brand-hue: 20;
+	transition: --brand-hue 0.7s var(--ease-glass);
 	--sky-hue: 205;
 
 	--ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -545,6 +554,91 @@
 		shimmer-sweep 6.5s ease-in-out infinite;
 }
 
+/* Aero glass scrollbar — glossy pill thumb over a translucent track, in
+   the current --brand-hue, no OS-native flat bars/arrows. Applied to the
+   page scrollbar itself and to dropdown lists via .aero-scroll below. */
+html {
+	scrollbar-width: thin;
+	scrollbar-color: oklch(0.62 0.2 var(--brand-hue) / 0.55) transparent;
+}
+html::-webkit-scrollbar {
+	width: 12px;
+}
+html::-webkit-scrollbar-track {
+	background: oklch(0.2 0.03 var(--sky-hue) / 0.25);
+}
+html::-webkit-scrollbar-thumb {
+	border-radius: 999px;
+	background: linear-gradient(
+		180deg,
+		oklch(0.85 0.1 var(--brand-hue) / 0.95) 0%,
+		oklch(0.62 0.2 var(--brand-hue) / 0.85) 45%,
+		oklch(0.42 0.19 var(--brand-hue) / 0.9) 100%
+	);
+	box-shadow:
+		0 0 0 1px oklch(1 0 0 / 0.35) inset,
+		0 1px 3px oklch(0 0 0 / 0.4);
+	background-clip: padding-box;
+	border: 3px solid transparent;
+	transition: background 0.2s var(--ease-glass);
+}
+html::-webkit-scrollbar-thumb:hover {
+	background: linear-gradient(
+		180deg,
+		oklch(0.9 0.1 var(--brand-hue) / 1) 0%,
+		oklch(0.68 0.2 var(--brand-hue) / 0.95) 45%,
+		oklch(0.48 0.19 var(--brand-hue) / 0.95) 100%
+	);
+	background-clip: padding-box;
+}
+html::-webkit-scrollbar-button {
+	display: none;
+	height: 0;
+	width: 0;
+}
+
+.aero-scroll {
+	scrollbar-width: thin;
+	scrollbar-color: oklch(0.62 0.2 var(--brand-hue) / 0.55) transparent;
+}
+.aero-scroll::-webkit-scrollbar {
+	width: 10px;
+}
+.aero-scroll::-webkit-scrollbar-track {
+	background: oklch(0.2 0.03 var(--sky-hue) / 0.25);
+	border-radius: 999px;
+	margin-block: 4px;
+}
+.aero-scroll::-webkit-scrollbar-thumb {
+	border-radius: 999px;
+	background: linear-gradient(
+		180deg,
+		oklch(0.85 0.1 var(--brand-hue) / 0.95) 0%,
+		oklch(0.62 0.2 var(--brand-hue) / 0.85) 45%,
+		oklch(0.42 0.19 var(--brand-hue) / 0.9) 100%
+	);
+	box-shadow:
+		0 0 0 1px oklch(1 0 0 / 0.35) inset,
+		0 1px 3px oklch(0 0 0 / 0.4);
+	background-clip: padding-box;
+	border: 2px solid transparent;
+	transition: background 0.2s var(--ease-glass);
+}
+.aero-scroll::-webkit-scrollbar-thumb:hover {
+	background: linear-gradient(
+		180deg,
+		oklch(0.9 0.1 var(--brand-hue) / 1) 0%,
+		oklch(0.68 0.2 var(--brand-hue) / 0.95) 45%,
+		oklch(0.48 0.19 var(--brand-hue) / 0.95) 100%
+	);
+	background-clip: padding-box;
+}
+.aero-scroll::-webkit-scrollbar-button {
+	display: none;
+	height: 0;
+	width: 0;
+}
+
 /* Scan line on the chart card */
 .glass-card-scan {
 	overflow: hidden;
@@ -640,12 +734,23 @@
 	}
 }
 
+/* NOTE: .popover-3d also carries .glass-card, whose own `animation` shorthand
+   (glow-breathe + shimmer-sweep, both infinite) must be re-listed here too —
+   otherwise this higher-specificity rule's `animation` shorthand replaces
+   .glass-card's outright instead of adding to it, silently freezing the
+   glass's ambient breathing/shimmer for as long as the panel stays open. */
 .popover-3d[data-state="open"] {
-	animation: popover-in 0.22s var(--ease-spring) both;
+	animation:
+		glow-breathe 7s ease-in-out infinite,
+		shimmer-sweep 6.5s ease-in-out infinite,
+		popover-in 0.22s var(--ease-spring) both;
 }
 
 .popover-3d[data-state="closing"] {
-	animation: popover-out 0.16s var(--ease-spring) both;
+	animation:
+		glow-breathe 7s ease-in-out infinite,
+		shimmer-sweep 6.5s ease-in-out infinite,
+		popover-out 0.16s var(--ease-spring) both;
 	pointer-events: none;
 }
 
@@ -662,6 +767,51 @@
 
 .popover-3d[data-state="open"] .popover-item {
 	animation: popover-item-in 0.28s var(--ease-glass) both;
+}
+
+/* Longhorn-style glass sheen — the diagonal light streak that sweeps across
+   an Aero panel as it materializes (see the Windows Longhorn "Days" sidebar
+   reveal: a bright diagonal band races across the glass on open, not just a
+   fade/scale). A pseudo-element instead of a real node so it costs nothing
+   once the animation ends and needs no extra DOM/React state. */
+.popover-3d::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		115deg,
+		transparent 25%,
+		oklch(1 0 0 / 0.22) 42%,
+		oklch(1 0 0 / 0.65) 50%,
+		oklch(1 0 0 / 0.22) 58%,
+		transparent 75%
+	);
+	background-size: 300% 300%;
+	background-position: -120% -120%;
+	mix-blend-mode: overlay;
+	opacity: 0;
+	pointer-events: none;
+}
+
+@keyframes popover-sheen {
+	0% {
+		opacity: 0;
+		background-position: -120% -120%;
+	}
+	12% {
+		opacity: 1;
+	}
+	65% {
+		opacity: 0.9;
+	}
+	100% {
+		opacity: 0;
+		background-position: 140% 140%;
+	}
+}
+
+.popover-3d[data-state="open"]::after {
+	animation: popover-sheen 0.6s var(--ease-glass) both;
 }
 
 /* Trigger buttons: subtle press/hover feedback + icon rotation on open. */
@@ -772,6 +922,29 @@
 
 .logo-float {
 	animation: logo-float 5s ease-in-out infinite;
+}
+
+/* Clickable logo wrapper — continuous mouse-follow 3D tilt + zoom, driven
+   by useLogoTilt (App.tsx) writing `transform` directly per rAF frame.
+   The transition here is what makes every one of those writes (and the
+   snap-back to "" on mouse-leave) read as fluid instead of abrupt — it is
+   NOT a hover-only transition. Lives on the wrapper, not .logo-float, so
+   it never fights the img's own idle float keyframes for `transform`. */
+.logo-link {
+	display: inline-block;
+	will-change: transform;
+	transition: transform 0.45s var(--ease-glass);
+	cursor: pointer;
+	border-radius: 0.5rem;
+}
+.logo-link:hover,
+.logo-link:focus-visible {
+	filter: drop-shadow(0 0 6px oklch(0.7 0.22 var(--brand-hue) / 0.75))
+		drop-shadow(0 0 16px oklch(0.6 0.22 var(--brand-hue) / 0.5));
+}
+.logo-link:focus-visible {
+	outline: 2px solid oklch(0.62 0.2 var(--brand-hue) / 0.7);
+	outline-offset: 3px;
 }
 
 /* ════════════════════════════════════════
