@@ -1,16 +1,15 @@
-# SENAI-SP Course Intelligence
+# SENAI Course Intelligence
 
-An open-source real-time course discovery and monitoring platform for SENAI São Paulo (SENAI-SP).
+An open-source real-time course discovery and monitoring platform covering multiple SENAI state federations across Brazil (SENAI-SP, SENAI-SC, and 17 others live, with more states tracked as "coming soon").
 
-The platform continuously aggregates, normalizes, stores, and presents public course and class offerings across all monitored SENAI-SP units through a consolidated, searchable, and responsive web interface.
+The platform continuously aggregates, normalizes, caches, and presents public course and class offerings for every monitored SENAI state through a single, searchable, responsive web interface — no navigating a different portal per state.
 
 [![Live Demo](https://img.shields.io/badge/demo-spsenai.arielaram.com-blue?style=flat-square)](https://spsenai.arielaram.com)
 [![GitHub Repository](https://img.shields.io/badge/github-ariel--aram%2Fsenai--cursos-black?style=flat-square&logo=github)](https://github.com/ariel-aram/senai-cursos)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat-square)](LICENSE)
-[![Project Status](https://img.shields.io/badge/status-active%20open%20source-success?style=flat-square)](#project-status)
 [![Runtime](https://img.shields.io/badge/Bun-1.x-black?style=flat-square&logo=bun)](https://bun.sh)
 [![Frontend](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)](https://react.dev)
-[![Database](https://img.shields.io/badge/SurrealDB-2.x%20%2F%20SurrealKV-red?style=flat-square&logo=surrealdb)](https://surrealdb.com)
+[![Database](https://img.shields.io/badge/SurrealDB-2.x-red?style=flat-square&logo=surrealdb)](https://surrealdb.com)
 
 ---
 
@@ -18,30 +17,7 @@ The platform continuously aggregates, normalizes, stores, and presents public co
 
 - **Live Application:** [spsenai.arielaram.com](https://spsenai.arielaram.com)
 - **Source Repository:** [github.com/ariel-aram/senai-cursos](https://github.com/ariel-aram/senai-cursos)
-- **Official SENAI-SP Portal:** [sp.senai.br](https://www.sp.senai.br)
 - **Contribution Guide:** [CONTRIBUTING.md](CONTRIBUTING.md)
-- **Documentation:**
-  - [System Architecture](docs/architecture.md)
-  - [HTTP API Reference](docs/api.md)
-  - [Data Ingestion Engine](docs/scraping.md)
-  - [Frontend Architecture](docs/frontend.md)
-  - [Production Deployment](docs/deployment.md)
-
----
-
-## Overview Metrics
-
-| Metric | Value | Reference / Verification |
-| ------ | ----- | ------------------------ |
-| SENAI-SP units monitored | 75 | Catalog extraction & unit registry |
-| Default UI refresh interval | 5 minutes (300 s) | `config.refreshIntervalSeconds` |
-| Catalog cache TTL | 2 hours | `config.catalogTtlMs` |
-| Unit class cache TTL | 30 minutes | `config.unitTtlMs` |
-| Ingestion HTTP request timeout | 12 seconds | `config.fetchTimeoutMs` |
-| Ingestion retry limit | 3 attempts | Exponential backoff (`300ms * 2^attempt`) |
-| Storage backend | SurrealDB (SurrealKV embedded) | Persistent multi-engine KV store (`src/db.ts`) |
-| Runtime architecture | Single-process fullstack | Bun serving React 19 SPA + REST API |
-| License | Apache-2.0 | [LICENSE](LICENSE) |
 
 ---
 
@@ -49,29 +25,30 @@ The platform continuously aggregates, normalizes, stores, and presents public co
 
 ### Problem
 
-SENAI São Paulo offers hundreds of vocational, technical, and continuous education courses distributed across physical facilities throughout the State of São Paulo. While course listings and schedule details are publicly available on the official SENAI-SP portal, discovering openings across multiple campuses, differentiating between scholarship-funded (gratuito) and paid offerings, and tracking vacancy availability in real time requires repetitive manual navigation across disparate unit pages.
+Every Brazilian state runs its own SENAI federation, each publishing course and vacancy data on its own domain, in its own format — some as a normal HTML site, some as a VTEX storefront, some behind a JS-heavy SPA. There is no single place to see "what's open, right now, near me" across states.
 
 ### Solution
 
-SENAI-SP Course Intelligence provides an autonomous data aggregation and visualization layer. It routinely scans public course listings, queries class schedule endpoints with resilient concurrency and caching controls, persists structured records into an embedded SurrealDB database, and serves an intuitive interface with fast search, granular filtering, and direct enrollment shortcuts.
+SENAI Course Intelligence pulls from each state's real, live public data source through a small per-state **adapter** (see [Architecture](#architecture)), normalizes it into one shared schema, caches it, and serves a fast, filterable UI. Every course card links straight back to the state's own official enrollment page — this project never handles enrollment itself.
 
-### Operating Principle & Institutional Clarity
+### Institutional Clarity
 
-This project is an independent open-source community effort and is **not affiliated with, endorsed by, or representing SENAI-SP or CNI**. It does not process enrollments, manage student records, or replace official portals. All course cards direct users straight to the official `sp.senai.br` domain for authoritative validation and enrollment completion.
+This is an independent, community-run project and is **not affiliated with, endorsed by, or representing SENAI, SESI, FIESP, or CNI** at the national or any state level. It does not process enrollments or manage student records. All data is sourced from each state's own public pages/APIs and may lag or drift from the source at any time — always confirm on the official site before enrolling.
 
 ---
 
 ## Key Features
 
-- **Automated Course Discovery & Normalization:** Discovers and catalogs course offerings across all 75 monitored units with binary-search page detection.
-- **Vacancy & Class Schedule Tracking:** Extracts total available vacancies, class counts, start dates (chronologically sorted), periods (Morning, Afternoon, Evening, Full-time), and exact schedules.
-- **Dual Modality Segregation:** Explicitly separates free (bolsa de estudos 100%) and paid course offerings with verified price extraction (`R$`).
-- **Resilient Multi-Tier Caching:** Implements single-flight in-memory caching paired with embedded SurrealDB (SurrealKV) persistence to eliminate redundant upstream load and ensure high availability.
-- **Background Warmup Pipeline:** Pre-warms cache across all monitored units during server startup with controlled concurrency (`WARMUP_CONCURRENCY = 6`).
-- **Real-Time Client Updates:** Automatic periodic refresh (5-minute countdown with pause/resume support) alongside manual on-demand refresh triggers.
-- **Search & Multi-Filter UI:** Real-time search across course names and codes, unit selectors, modality tabs, period filters, and sorting controls.
-- **Deep Links to Official Portals:** Every course card links straight to its corresponding page on `sp.senai.br`.
-- **Lightweight Single-Process Architecture:** REST API and pre-bundled React 19 SPA delivered concurrently from a single native Bun HTTP process.
+- **Multi-State Coverage:** One selector across every monitored state (see `STATE_ORDER` in [`src/state-meta.ts`](src/state-meta.ts)); each active state has a real, verified adapter — a state is only flipped from "coming soon" to "active" once its data source has been inspected and confirmed to return real, current offerings.
+- **Per-State Adapters, One Shared Schema:** Each state's adapter (`src/adapters/<uf>.ts`) knows how to reach that state's real backend — some are direct HTML/API scrapers (SP, SC), some share a common VTEX storefront backend via `createFuturoDigitalAdapter()` (`src/adapters/futuro-digital.ts`) — and all of them normalize into the same `Course`/`UnitInfo`/`Area` shape (`src/types.ts`).
+- **Free vs. Paid Segregation:** Every state's catalog is split into free (bolsa) and paid offerings, each with its own vacancy count, class count, start dates, schedules, and price where available.
+- **Area/Category Filtering:** Not just "Tecnologia da Informação" — every área a state's real catalog actually exposes is discoverable per state (`GET /api/areas`), with T.I. only kept as the first-paint default.
+- **Resilient Caching:** In-memory single-flight caching (per state, per área) backed by an embedded SurrealDB instance for durability across restarts, plus a 5-second L1 response cache in front of every `/api/*` GET to absorb request bursts.
+- **Background Warmup + Proactive Refresh:** Every active state's default área is pre-warmed on server boot, then re-fetched proactively before its cache TTL expires — users hit a warm cache almost all the time, not a cold scrape.
+- **Real-Time Client Updates:** Auto-refresh countdown (default 5 min) plus a manual refresh button, both scoped to the currently selected state/área/unit.
+- **Frutiger Aero UI:** A glassmorphism interface (translucent glass cards, specular highlights, glow) themed per state via a single `--brand-hue` CSS variable, with an actual custom cursor set — real `.cur`/`.ani` files from a Windows Aero cursor pack, decoded and rendered as native browser cursors (see [`src/lib/cursors.ts`](src/lib/cursors.ts)), colored per state and swapped for context (default pointer, "busy" ring on hoverable states, "not allowed" on coming-soon states, "working" while data loads).
+- **Deep Links to Official Portals:** Every course card links straight to that state's own official course page.
+- **Single-Process Architecture:** REST API and the pre-bundled React 19 SPA are both served from one native Bun HTTP process — no separate API server or reverse proxy required.
 
 ---
 
@@ -79,116 +56,85 @@ This project is an independent open-source community effort and is **not affilia
 
 ```mermaid
 flowchart TD
-    subgraph Upstream ["Upstream Public Data (sp.senai.br)"]
-        A["Catalog Listing Pages (/cursos/...)"]
-        B["Class Details Endpoint (POST /cursosturmas/)"]
-        C["Unit Directory (/unidades)"]
+    subgraph Upstream ["Upstream: each state's own public source"]
+        A["State-specific HTML/API (sp.senai.br, cursos.sesisenai.org.br, ...)"]
+        B["Shared VTEX storefront (tewbhv.vtexcommercestable.com.br)\nused by several states via futuro-digital.ts"]
     end
 
     subgraph Server ["Bun Fullstack Process (src/index.ts)"]
-        subgraph Ingestion ["Ingestion & Normalization Layer"]
-            D["detectTotalPages() (Binary Search)"]
-            E["buildCatalog() (Concurrency Pool = 12)"]
-            F["postTurmas() (Retry & Backoff = 3)"]
-            G["parseTurmasHtml() (Regex Normalizer)"]
-            H["scrapeUnits() (Fallback Registry)"]
+        subgraph Adapters ["Per-State Adapters (src/adapters/*.ts)"]
+            C["StateAdapter interface\ngetUnits / getAreas / getCatalogUnitIds\ngetUnitData / getUnitPaidData"]
         end
 
-        subgraph Storage ["Cache & Persistence Layer"]
-            I["In-Memory Single-Flight Cache (Map)"]
-            J[("Embedded SurrealDB (SurrealKV)")]
+        subgraph Storage ["Cache & Persistence"]
+            D["KeyedAsyncCache — in-memory, single-flight, TTL"]
+            E[("SurrealDB (embedded)")]
+            F["L1 response cache — 5s, per API GET"]
         end
 
         subgraph Transport ["HTTP Engine (Bun.serve)"]
-            K["API Routes (/api/units, /api/courses, /api/paid-courses, /api/refresh)"]
-            L["SPA Static Asset Handler (GET /*)"]
+            G["/api/states, /api/units, /api/areas,\n/api/courses, /api/paid-courses,\n/api/courses/all, /api/refresh,\n/api/paid-refresh, /api/config"]
+            H["SPA static asset handler (GET /*)"]
         end
     end
 
-    subgraph Client ["Client Presentation Layer (React 19 SPA)"]
-        M["State Hooks (useMemo, useTilt, useCountdown)"]
-        N["Search & Filter Components (UnitSearch, Modality Tabs)"]
-        O["Card Grid & Direct sp.senai.br Link Out"]
+    subgraph Client ["React 19 SPA (src/App.tsx)"]
+        I["State / Area / Unit selectors"]
+        J["Course bars — free & paid, per unit"]
+        K["Frutiger Aero glass UI + Aero cursor set"]
     end
 
-    A --> D --> E
-    B --> F --> G
-    C --> H
-    E & G & H --> I
-    I <--> J
-    I <--> K
-    L --> Client
-    K -->|JSON Payloads| M
-    M --> N --> O
+    A --> C
+    B --> C
+    C --> D
+    D <--> E
+    G --> F --> D
+    H --> Client
+    G -->|JSON| I
+    I --> J --> K
 ```
 
-### Layer Roles and Responsibilities
+### Layer Roles
 
-- **Ingestion & Normalization Layer (`src/index.ts`):** Fetches public HTML pages using binary search boundary discovery, handles retries with exponential backoff (`300ms * 2^attempt`), normalizes dates (`YYYYMMDD` sorting), parses class schedules, and extracts pricing details.
-- **Cache & Persistence Layer (`src/index.ts`, `src/db.ts`):** Employs single-flight in-memory promise memoization to coalesce concurrent requests, backed by embedded SurrealDB (SurrealKV engine) for local persistence across restarts.
-- **HTTP Engine (`src/index.ts`):** Serves REST API endpoints for unit listings, free/paid courses, on-demand refresh triggers, and client SPA assets from a single unified Bun server.
-- **Client Presentation Layer (`src/App.tsx`, `src/frontend.tsx`):** Delivers a responsive glassmorphism UI with real-time text search, unit selection, countdown timers, and deep links to official course pages.
-
----
-
-## Data Pipeline
-
-```text
-[sp.senai.br] ──(HTTP GET/POST)──> [Ingestion Layer] ──(Regex/Sanitization)──> [Normalized Schema]
-                                                                                       │
-                                                                   ┌───────────────────┴──────────────────┐
-                                                                   ▼                                      ▼
-                                                       [In-Memory Cache (TTL)]               [SurrealDB (SurrealKV)]
-                                                                   │                                      │
-                                                                   └───────────────────┬──────────────────┘
-                                                                                       ▼
-                                                                             [REST API Endpoints]
-                                                                                       │
-                                                                                       ▼
-                                                                             [React 19 UI / Client]
-```
-
-1. **Origin:** Publicly available catalog listings and class schedule HTML endpoints on `sp.senai.br`.
-2. **Collection:** Catalog discovery executes via binary search over page indices (`[1, 25]`), fetching active pages with controlled concurrency (`CATALOG_CONCURRENCY = 12`). Class schedules are fetched per unit via HTTP POST with `AbortSignal` timeouts (12s).
-3. **Parsing & Normalization:** Regular expressions decode HTML entities, extract vacancy totals, chronological start dates, class period schedules, and numeric price strings.
-4. **Upstream Protection & Rate-Limiting Mitigation:**
-   - **Single-Flight Request Deduplication:** If multiple concurrent requests query the same unit, they share the active pending Promise rather than initiating redundant upstream requests.
-   - **Multi-Tier Caching:** Catalog data is cached for 2 hours (`CATALOG_TTL_MS`); unit schedules are cached for 30 minutes (`UNIT_TTL_MS`).
-   - **Background Unit Warmup:** During startup, all 75 units are warmed sequentially with a concurrency cap (`WARMUP_CONCURRENCY = 6`) to distribute network load.
-5. **Persistence:** Clean records (`Course`, `UnitInfo`) are upserted into SurrealDB (`senai.db`) using the local SurrealKV engine.
-6. **Delivery & Visualization:** REST endpoints deliver typed JSON payloads to the React 19 interface for real-time filtering, search, and sorting.
+- **Adapters (`src/adapters/*.ts`):** One file per active state, each implementing the shared `StateAdapter` interface (`src/adapters/types.ts`). Several states (currently MA, MS, GO, TO, PI, RO, CE, MT, PR, ES, PA, PE, RN) share a single implementation, `createFuturoDigitalAdapter(uf, refPrefix)`, since they all sell through the same VTEX storefront backend and are only distinguished by a `"UF|"` prefix on `productReferenceCode`. SP and SC have their own dedicated scrapers. The registry (`src/adapters/registry.ts`) maps `uf -> adapter` and is the actual source of truth for "active" vs. "coming soon" (`src/state-meta.ts`'s `KNOWN_ACTIVE` is only a first-paint hint and is checked against the registry at startup in development).
+- **Cache & Persistence (`src/adapters/keyed-cache.ts`, `src/db.ts`):** `KeyedAsyncCache` coalesces concurrent identical requests into one upstream call and treats an empty result as a likely transient failure (not "genuinely zero courses"), so it won't cache a bad zero over real data. SurrealDB (embedded, RocksDB engine — see the comment in `config/config.example.ts` for why SurrealKV specifically doesn't work on this stack) persists the last known-good `Course`/`UnitInfo` rows per state so a cold start still has data to show while the cache re-warms.
+- **HTTP Engine (`src/index.ts`):** Serves every `/api/*` route plus the bundled SPA from one `Bun.serve()` call, with a 5-second L1 cache in front of GETs and a scheduled proactive refresh loop that re-warms every active state before its TTL actually expires.
+- **Client (`src/App.tsx`, `src/frontend.tsx`, `styles/globals.css`):** A single-page React 19 app — state/area/unit selectors, free/paid course bars, and the Frutiger Aero glass theme, all driven by a `--brand-hue` CSS variable set per selected state.
 
 ---
 
 ## Technology Stack
 
-| Technology | Role | Purpose in Project |
-| ---------- | ---- | ------------------ |
-| **[Bun](https://bun.sh)** (v1.x) | Fullstack Runtime & Tooling | Provides fast JavaScript execution, built-in HTTP server (`Bun.serve`), file bundling, and package management |
-| **[TypeScript](https://www.typescriptlang.org)** (v5.x / 7.x tooling) | Type Safety & Domain Modeling | Guarantees strict static typing across shared schema definitions (`types.ts`), backend services, and UI components |
-| **[React](https://react.dev)** (v19) | Frontend Architecture | Powers declarative UI rendering, interactive state management, and real-time client-side filtering |
-| **[Tailwind CSS](https://tailwindcss.com)** (v4) | Styling Framework | Enables modern responsive layouts, glassmorphism visual styling, and custom OKLCH color palettes |
-| **[SurrealDB](https://surrealdb.com)** (`@surrealdb/node`) | Embedded Database | Persists normalized course and unit records locally via SurrealKV engine without requiring external database servers |
-| **[Biome](https://biomejs.dev)** | Linter & Code Formatter | Enforces code consistency, fast formatting, and static analysis across the codebase |
-| **[Lucide React](https://lucide.dev)** | Icon Library | Delivers lightweight, accessible SVG iconography for UI status indicators and metadata badges |
-| **[Radix UI / shadcn utilities](https://ui.shadcn.com)** | UI Component Primitives | Supplies accessible UI building blocks (`Button`, `Card`, `class-variance-authority`, `tailwind-merge`) |
+| Technology | Role |
+| ---------- | ---- |
+| **[Bun](https://bun.sh)** (v1.x) | Runtime, bundler, package manager, and HTTP server (`Bun.serve`) |
+| **[TypeScript](https://www.typescriptlang.org)** | Static typing across adapters, server, and UI (`src/types.ts` is the shared schema) |
+| **[React](https://react.dev)** (v19) | Client UI |
+| **[Tailwind CSS](https://tailwindcss.com)** (v4) | Styling, plus the hand-written Frutiger Aero layer in `styles/globals.css` |
+| **[SurrealDB](https://surrealdb.com)** | Embedded persistence for the last known-good catalog per state |
+| **[ani-cursor](https://github.com/captbaritone/webamp/tree/master/packages/ani-cursor)** | Renders the real `.ani` cursor files as CSS animations in-browser (no native `.ani` support in any browser) |
+| **[Biome](https://biomejs.dev)** | Linting and formatting |
+| **[Lucide React](https://lucide.dev)** | Iconography |
+| **[Radix UI / shadcn-style primitives](https://ui.shadcn.com)** | `Button`, `Card`, and related utilities |
 
 ---
 
 ## HTTP API Reference
 
-The backend exposes structured REST endpoints consumed by the web client and available for integration:
+Every route takes a `uf` query param (two-letter state code, e.g. `sp`, `sc`, `mg`) except `/api/states` and `/api/config`.
 
 | Method | Endpoint | Description |
 | ------ | -------- | ----------- |
-| `GET` | `/api/units` | Lists all monitored SENAI-SP units with active IT courses |
-| `GET` | `/api/courses?unit={unitId}` | Retrieves free (bolsa integral) courses and vacancies for a unit |
-| `GET` | `/api/paid-courses?unit={unitId}` | Retrieves paid courses, schedules, and pricing for a unit |
-| `POST` | `/api/refresh?unit={unitId}` | Invalidates cache and forces fresh scraping of free courses |
-| `POST` | `/api/paid-refresh?unit={unitId}` | Invalidates cache and forces fresh scraping of paid courses |
-| `GET` | `/*` | Serves the single-page application (`index.html`) |
-
-*For complete request/response schemas and TypeScript interfaces, refer to [docs/api.md](docs/api.md).*
+| `GET` | `/api/states` | Lists every known state with its live `active`/`coming-soon` status |
+| `GET` | `/api/config` | Returns the default unit ID and refresh-interval seconds for first paint |
+| `GET` | `/api/units?uf=&area=` | Lists units of a state that have courses in the given área |
+| `GET` | `/api/areas?uf=` | Lists the real áreas (categories) that state's catalog exposes |
+| `GET` | `/api/courses?uf=&unit=&area=` | Free courses for a unit/área |
+| `GET` | `/api/paid-courses?uf=&unit=&area=` | Paid courses for a unit/área |
+| `GET` | `/api/courses/all?uf=&unit=&area=` | Both free and paid in one call — `{ free, paid }` |
+| `POST` | `/api/refresh?uf=&unit=&area=` | Forces a fresh fetch of free courses, bypassing cache |
+| `POST` | `/api/paid-refresh?uf=&unit=&area=` | Forces a fresh fetch of paid courses, bypassing cache |
+| `GET` | `/*` | Serves the SPA |
 
 ---
 
@@ -196,87 +142,68 @@ The backend exposes structured REST endpoints consumed by the web client and ava
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) (v1.1.0 or higher recommended)
+- [Bun](https://bun.sh) (v1.1.0 or higher)
 - Git
 
 ### Installation
 
 ```bash
-# Clone repository
 git clone https://github.com/ariel-aram/senai-cursos.git
 cd senai-cursos
-
-# Install dependencies
 bun install
-
-# Initialize configuration
 cp config/config.example.ts config/config.ts
 ```
 
-### Running the Application
+### Running
 
 ```bash
-# Start development server with Hot Module Replacement (HMR) on port 3010
-bun dev
-
-# Run in production mode
-bun start
+bun dev     # development server with HMR on http://localhost:3010
+bun start   # production mode (NODE_ENV=production)
 ```
 
-### Build & Verification Commands
+### Scripts
 
 | Command | Purpose |
 | ------ | -------- |
-| `bun dev` | Starts development server with HMR on `http://localhost:3010` |
-| `bun start` | Runs production server (`NODE_ENV=production`) |
-| `bun run build` | Compiles client assets and bundles to `dist/` |
-| `bun check` | Executes Biome format and lint check with autofix |
-| `bun run tsc` | Runs TypeScript type checking without emitting files |
+| `bun dev` | Dev server with HMR |
+| `bun start` | Production server |
+| `bun run build` | Bundles the client to `dist/` |
+| `bun check` | Biome format + lint, with autofix |
+| `bun run tsc` | Type-check without emitting |
 
 ---
 
 ## Configuration
 
-All configuration values can be adjusted in `config/config.ts` or passed via environment variables:
+Copy `config/config.example.ts` to `config/config.ts` and adjust as needed — every field can also be set via environment variable. See the comments in that file for the full, current list (server port/host, SurrealDB path, catalog/unit cache TTLs, fetch timeout & retries, concurrency limits, default unit, and refresh interval).
 
-| Environment Variable | Default | Description |
-| -------------------- | ------- | ----------- |
-| `PORT` | `3010` | HTTP server listening port |
-| `HOST` | `0.0.0.0` | Network interface binding |
-| `SURREAL_DB_PATH` | `surrealkv://./data/senai.db` | Connection URI / path for SurrealDB storage |
-| `CATALOG_TTL_MS` | `7200000` (2 hours) | Lifetime of catalog discovery cache |
-| `UNIT_TTL_MS` | `1800000` (30 minutes) | Lifetime of unit class details cache |
-| `FETCH_TIMEOUT_MS` | `12000` (12 seconds) | Upstream HTTP request timeout |
-| `MAX_RETRIES` | `3` | Max retry attempts with exponential backoff |
-| `CATALOG_CONCURRENCY` | `12` | Parallel page fetch concurrency for catalog scan |
-| `TURMAS_CONCURRENCY` | `12` | Parallel class request concurrency per unit |
-| `WARMUP_CONCURRENCY` | `6` | Number of units pre-warmed concurrently on boot |
-| `DEFAULT_UNIT_ID` | `403` | Default selected unit ID on initial client load (403 = Alumínio) |
-| `REFRESH_INTERVAL_SECONDS` | `300` (5 minutes) | Automatic UI refresh timer duration |
+---
+
+## Adding a State
+
+A state only gets flipped to "active" after its real data source has been inspected and confirmed (see the comments in any existing `src/adapters/<uf>.ts` for the kind of verification expected — real product counts, real available turmas, not just "the page exists"). To add one:
+
+1. Confirm the state's real source and whether it's a VTEX storefront behind the shared `tewbhv` account (check for a `"UF|"` prefix on `productReferenceCode`) or something bespoke.
+2. If it's the shared VTEX backend: add `src/adapters/<uf>.ts` calling `createFuturoDigitalAdapter(uf, "UF|")`. If bespoke: write a full `StateAdapter` implementation.
+3. Register it in `src/adapters/registry.ts`'s `ADAPTERS` map.
+4. Add the state's cosmetic metadata (name, logo, flag, brand hue, `sourceLabel`) to `src/state-meta.ts`, and its uf to `KNOWN_ACTIVE`.
+
+A state with metadata in `state-meta.ts` but no entry in the adapter registry shows up automatically as "coming soon" — no other wiring needed.
 
 ---
 
 ## Project Status
 
-**Active Open-Source Project**  
-Maintained by the open-source community for educational, research, and non-commercial public utility purposes.
+Active, open-source, maintained for educational, research, and non-commercial public-utility purposes.
 
----
+## Contributing
 
-## Open Source & Contributing
-
-This project is fully open source under the **Apache License 2.0**. We welcome contributions from software developers, data engineers, UI designers, and educational tech researchers.
-
-For environment setup, coding guidelines, ethical data scraping principles, and PR instructions, please review [CONTRIBUTING.md](CONTRIBUTING.md).
-
----
+This project is licensed under **Apache-2.0** and welcomes contributions — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup, guidelines, and PR expectations.
 
 ## Disclaimer
 
-This software is an independent, non-official tool designed to aggregate publicly accessible data from `sp.senai.br`. It is **not affiliated with, endorsed by, sponsored by, or associated with SENAI São Paulo, SESI, FIESP, or CNI**. Course availability, schedules, vacancies, and pricing are subject to immediate change by SENAI-SP without prior notice. Users must consult the official [sp.senai.br](https://www.sp.senai.br) portal to verify information and complete course enrollments.
-
----
+This software independently aggregates publicly accessible data from each state's own SENAI portal. It is **not affiliated with, endorsed by, sponsored by, or associated with SENAI, SESI, FIESP, or CNI**, nationally or in any state. Course availability, schedules, vacancies, and pricing change without notice — always verify on the relevant official portal before enrolling.
 
 ## License
 
-Licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for complete terms and copyright notices.
+Licensed under the **Apache License, Version 2.0**. See [LICENSE](LICENSE) for full terms.

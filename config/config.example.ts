@@ -12,9 +12,13 @@ export const config = {
 	host: process.env.HOST ?? "0.0.0.0",
 
 	// ── SurrealDB embarcado ───────────────────────────────────────────────────────
-	// Caminho do banco de dados SurrealKV. Em produção, use um volume persistente.
-	// Equivalente: SURREAL_DB_PATH=surrealkv:///app/data/senai.db
-	surrealDbPath: process.env.SURREAL_DB_PATH ?? "surrealkv://./data/senai.db",
+	// Caminho do banco embarcado. Usa o engine RocksDB, não SurrealKV — o backend
+	// surrealkv:// do @surrealdb/node trava indefinidamente em db.connect() nesta
+	// stack (Windows + Bun), confirmado isolando a chamada fora do app inteiro;
+	// rocksdb:// conecta e lê/escreve normalmente com os mesmos pacotes. Em
+	// produção, use um volume persistente.
+	// Equivalente: SURREAL_DB_PATH=rocksdb:///app/data/senai.db
+	surrealDbPath: process.env.SURREAL_DB_PATH ?? "rocksdb://./data/senai.db",
 
 	// ── Cache ─────────────────────────────────────────────────────────────────────
 	// Por quanto tempo o catálogo (todos os pares curso × unidade) fica em cache.
