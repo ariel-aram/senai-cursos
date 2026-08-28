@@ -20,6 +20,9 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Copy default config
+        run: cp config/config.example.ts config/config.ts
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
