@@ -1,593 +1,129 @@
 import { serve } from "bun";
 import { config } from "../config/config";
-import {
-	connectDb,
-	dbGetAllUnits,
-	dbGetCourses,
-	dbGetScrapedAt,
-	dbUpsertCourses,
-	dbUpsertUnit,
-} from "./db";
+import { withConcurrency } from "./adapters/http";
+import { getAdapter, STATES } from "./adapters/registry";
+import { DEFAULT_AREA_SLUG } from "./constants";
+import { connectDb, dbDeleteStaleCourses, dbGetAllUnits } from "./db";
 import index from "./index.html";
 
-export type { Course, CoursesData, Schedule, UnitInfo } from "./types";
+export type { Area, Course, CoursesData, Schedule, StateCode, StateInfo, UnitInfo } from "./types";
 
-import type { Course, CoursesData, UnitInfo } from "./types";
-
-const SENAI_BASE = "https://www.sp.senai.br";
-
-// ── Catalog: (course × unit) pairs from listing pages ───────────────────────
-interface CatalogEntry {
-	name: string;
-	slug: string;
-	courseId: number;
-	hours: number;
-	unitId: number;
-	isBolsa: boolean;
+function ufFromRequest(req: Request, fallback = "sp"): string {
+	return new URL(req.url).searchParams.get("uf") ?? fallback;
 }
 
-const catalogUnitNames = new Map<number, string>();
-let catalogCache: { entries: CatalogEntry[]; updatedAt: number } | null = null;
-let catalogPending: Promise<{ entries: CatalogEntry[]; updatedAt: number }> | null = null;
-
-// ── Per-unit caches ──────────────────────────────────────────────────────────
-const unitDataCache = new Map<number, { data: CoursesData; updatedAt: number }>();
-const unitDataPending = new Map<number, Promise<CoursesData>>();
-const unitPaidDataCache = new Map<number, { data: CoursesData; updatedAt: number }>();
-const unitPaidDataPending = new Map<number, Promise<CoursesData>>();
-
-// ── Unit registry ────────────────────────────────────────────────────────────
-let unitsRegistry: UnitInfo[] | null = null;
-let unitsRegistryPending: Promise<UnitInfo[]> | null = null;
-
-// ── Core helpers ─────────────────────────────────────────────────────────────
-
-function decodeEntities(str: string): string {
-	return str
-		.replace(/&#x([0-9A-Fa-f]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-		.replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
-		.replace(/&amp;/g, "&")
-		.replace(/&lt;/g, "<")
-		.replace(/&gt;/g, ">")
-		.replace(/&quot;/g, '"')
-		.replace(/&apos;/g, "'")
-		.replace(/<[^>]+>/g, "")
-		.trim();
+function unitIdFromRequest(req: Request): number {
+	return parseInt(new URL(req.url).searchParams.get("unit") ?? String(config.defaultUnitId), 10);
 }
 
-// Run up to `limit` tasks at once; returns results in input order.
-async function withConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
-	const results: T[] = new Array(tasks.length);
-	let idx = 0;
-	async function worker() {
-		while (idx < tasks.length) {
-			const i = idx++;
-			const task = tasks[i];
-			if (task) results[i] = await task();
-		}
+function areaFromRequest(req: Request): string {
+	return new URL(req.url).searchParams.get("area") ?? DEFAULT_AREA_SLUG;
+}
+
+// ── L1 response cache ────────────────────────────────────────────────────────
+// Short-lived in-memory cache for API GET responses. Coalesces concurrent
+// identical requests (e.g., multiple clients polling the same unit) into one
+// upstream scrape, eliminating redundant work during traffic spikes.
+const L1_TTL_MS = 5_000;
+const l1Cache = new Map<string, { body: string; status: number; ts: number }>();
+
+function _l1Get(key: string): { body: string; status: number } | null {
+	const entry = l1Cache.get(key);
+	if (!entry) return null;
+	if (Date.now() - entry.ts > L1_TTL_MS) {
+		l1Cache.delete(key);
+		return null;
 	}
-	await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
-	return results;
+	return { body: entry.body, status: entry.status };
 }
 
-// Retry an async task up to `retries` times with exponential backoff.
-async function withRetry<T>(fn: () => Promise<T>, retries = config.maxRetries): Promise<T> {
-	let lastErr: unknown;
-	for (let attempt = 0; attempt <= retries; attempt++) {
-		try {
-			return await fn();
-		} catch (err) {
-			lastErr = err;
-			if (attempt < retries) await Bun.sleep(300 * 2 ** attempt);
-		}
+function _l1Set(key: string, body: string, status: number): void {
+	l1Cache.set(key, { body, status, ts: Date.now() });
+	if (l1Cache.size > 500) {
+		const oldest = [...l1Cache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0];
+		if (oldest) l1Cache.delete(oldest[0]);
 	}
-	throw lastErr;
 }
 
-async function get(url: string, timeoutMs = config.fetchTimeoutMs): Promise<string> {
-	return withRetry(async () => {
-		const res = await fetch(url, {
-			headers: { "User-Agent": "Mozilla/5.0 (compatible; SENAI-Monitor)" },
-			signal: AbortSignal.timeout(timeoutMs),
-		});
-		return res.ok ? res.text() : "";
-	}).catch(() => "");
+function _l1Key(req: Request): string | null {
+	if (req.method !== "GET") return null;
+	const url = new URL(req.url);
+	if (!url.pathname.startsWith("/api/")) return null;
+	return `${url.pathname}?${url.searchParams.toString()}`;
 }
 
-// ── Units registry ────────────────────────────────────────────────────────────
-
-// Strips accents, "senai", punctuation → plain lowercase for name matching.
-function normalizeForMatch(name: string): string {
-	return name
-		.normalize("NFD")
-		.replace(/[̀-ͯ]/g, "")
-		.toLowerCase()
-		.replace(/\bsenai\b/g, "")
-		.replace(/[-–—·#]/g, " ")
-		.replace(/[^a-z0-9 ]/g, "")
-		.replace(/\s+/g, " ")
-		.trim();
-}
-
-async function scrapeUnits(): Promise<UnitInfo[]> {
-	const html = await get(`${SENAI_BASE}/unidades`);
-	if (!html) return [];
-	const units: UnitInfo[] = [];
-	const seen = new Set<number>();
-	const emailRegex = /secretaria(\d+)@sp\.senai\.br/gi;
-	for (const match of html.matchAll(emailRegex)) {
-		const id = parseInt(match[1] ?? "", 10);
-		if (!id || seen.has(id)) continue;
-		seen.add(id);
-		const pos = match.index ?? 0;
-		const before = html.slice(Math.max(0, pos - 4000), pos);
-		const headingPattern = /<h[1-4][^>]*>\s*([^<]{3,100}?)\s*<\/h[1-4]>/gi;
-		let closestName = "";
-		let lastIdx = -1;
-		for (const h of before.matchAll(headingPattern)) {
-			if ((h.index ?? 0) > lastIdx) {
-				lastIdx = h.index ?? 0;
-				closestName = h[1] ?? "";
-			}
-		}
-		if (!closestName) {
-			const afterMatch = headingPattern.exec(html.slice(pos, Math.min(html.length, pos + 1000)));
-			if (afterMatch) closestName = afterMatch[1] ?? "";
-		}
-		const name = closestName ? decodeEntities(closestName) : `Unidade ${id}`;
-		units.push({ id, name });
-	}
-	return units.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-}
-
-async function getUnits(): Promise<UnitInfo[]> {
-	if (unitsRegistry) return unitsRegistry;
-	if (unitsRegistryPending) return unitsRegistryPending;
-	unitsRegistryPending = Promise.all([getCatalog(), scrapeUnits()])
-		.then(([, scraped]) => {
-			const units: UnitInfo[] = [];
-			const seen = new Set<number>();
-			for (const [id, name] of catalogUnitNames) {
-				units.push({ id, name });
-				seen.add(id);
-			}
-			for (const u of scraped) {
-				if (!seen.has(u.id)) {
-					units.push(u);
-					seen.add(u.id);
-				}
-			}
-			units.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-
-			// Map normalized scraped name → official ID (email-based, e.g. secretaria499@)
-			const officialByNorm = new Map<string, number>();
-			for (const u of scraped) {
-				const norm = normalizeForMatch(u.name);
-				if (norm) officialByNorm.set(norm, u.id);
-			}
-
-			// Assign officialId to catalog-based units by name match.
-			// Catalog names are "City - Neighborhood"; scraped names are often just "City".
-			// We pick the longest scraped name that is a word-boundary prefix of the catalog name.
-			for (const u of units) {
-				if (u.officialId) continue;
-				const norm = normalizeForMatch(u.name);
-				let best: { len: number; id: number } | null = null;
-				for (const [sNorm, sid] of officialByNorm) {
-					if (norm === sNorm || norm.startsWith(`${sNorm} `)) {
-						if (!best || sNorm.length > best.len) best = { len: sNorm.length, id: sid };
-					}
-				}
-				if (best) u.officialId = best.id;
-			}
-
-			// Disambiguate units that share the exact same name (multiple campi, same bairro).
-			// Use the official ID in the suffix so users can cross-reference sp.senai.br/unidades.
-			const nameCount = new Map<string, number>();
-			for (const u of units) nameCount.set(u.name, (nameCount.get(u.name) ?? 0) + 1);
-			for (const u of units) {
-				if ((nameCount.get(u.name) ?? 0) > 1) u.name = `${u.name} · #${u.officialId ?? u.id}`;
-			}
-
-			unitsRegistry = units;
-			unitsRegistryPending = null;
-			// Persist to DB for fast future startups
-			for (const u of units) dbUpsertUnit(u).catch(() => {});
-			return units;
-		})
-		.catch(() => {
-			unitsRegistryPending = null;
-			const fallback: UnitInfo[] = [
-				{ id: 403, name: "Alumínio" },
-				{ id: 499, name: "Mairinque" },
-			];
-			unitsRegistry = fallback;
-			return fallback;
-		});
-	return unitsRegistryPending;
-}
-
-// ── Catalog: scrape all listing pages ────────────────────────────────────────
-
-async function fetchPage(page: number): Promise<string> {
-	return get(
-		`${SENAI_BASE}/cursos/cursos-livres/tecnologia-da-informacao-e-informatica?pag=${page}`,
-	);
-}
-
-async function detectTotalPages(): Promise<number> {
-	// Binary-search for the last page that has content (openModalTurmas).
-	let lo = 1;
-	let hi = 25;
-	let lastGood = 1;
-	const hasContent = async (p: number) => (await fetchPage(p)).includes("openModalTurmas");
-	while (lo <= hi) {
-		const mid = (lo + hi) >> 1;
-		if (await hasContent(mid)) {
-			lastGood = mid;
-			lo = mid + 1;
-		} else {
-			hi = mid - 1;
-		}
-	}
-	return lastGood;
-}
-
-async function buildCatalog(): Promise<{ entries: CatalogEntry[]; updatedAt: number }> {
-	const totalPages = await detectTotalPages();
-	console.log(`[catalog] scraping ${totalPages} página(s)…`);
-
-	const pages = await withConcurrency(
-		Array.from({ length: totalPages }, (_, i) => () => fetchPage(i + 1)),
-		config.catalogConcurrency,
-	);
-
-	const seen = new Set<string>();
-	const entries: CatalogEntry[] = [];
-	const regex = /openModalTurmas\('([^']+)',\s*'([^']+)',\s*(\d+),\s*(\d+),/g;
-
-	for (const html of pages) {
-		for (const match of html.matchAll(regex)) {
-			const [, rawName, slug, courseIdStr, unitIdStr] = match;
-			if (!rawName || !slug || !courseIdStr || !unitIdStr) continue;
-			const courseId = parseInt(courseIdStr, 10);
-			const unitId = parseInt(unitIdStr, 10);
-			const key = `${courseId}-${unitId}`;
-			if (seen.has(key)) continue;
-			seen.add(key);
-
-			const name = decodeEntities(rawName);
-
-			const contextStart = Math.max(0, (match.index ?? 0) - 3000);
-			const context = html.slice(contextStart, match.index);
-			const cardTitleIdx = context.lastIndexOf('class="card-title"');
-			const cardContext = cardTitleIdx >= 0 ? context.slice(cardTitleIdx) : context;
-			const hoursMatch = cardContext.match(/<strong>(\d+) horas<\/strong>/);
-			const hours = hoursMatch?.[1] ? parseInt(hoursMatch[1], 10) : 0;
-
-			if (!catalogUnitNames.has(unitId)) {
-				// Use cardContext (current card only) to avoid picking up names from adjacent cards
-				const nameMatch = cardContext.match(/<strong>([^\d<][^<]*)<\/strong>\s*-\s*([^<\n\r(]+)/i);
-				if (nameMatch) {
-					const city = decodeEntities(nameMatch[1]?.trim() ?? "");
-					const neighborhood = decodeEntities(nameMatch[2]?.trim() ?? "");
-					const unitName = neighborhood ? `${city} - ${neighborhood}` : city;
-					if (unitName.length >= 3) catalogUnitNames.set(unitId, unitName);
-				}
-			}
-
-			const isBolsa = /bolsa/i.test(name);
-			entries.push({ name, slug, courseId, hours, unitId, isBolsa });
-		}
-	}
-
-	console.log(
-		`[catalog] ${entries.length} entradas · ${new Set(entries.map((e) => e.courseId)).size} cursos · ${new Set(entries.map((e) => e.unitId)).size} unidades`,
-	);
-	return { entries, updatedAt: Date.now() };
-}
-
-async function getCatalog() {
-	const isStale = !catalogCache || Date.now() - catalogCache.updatedAt > config.catalogTtlMs;
-	if (!isStale && catalogCache) return catalogCache;
-	if (catalogPending) return catalogPending;
-	catalogPending = buildCatalog()
-		.then((catalog) => {
-			catalogCache = catalog;
-			catalogPending = null;
-			return catalog;
-		})
-		.catch((err) => {
-			catalogPending = null;
-			throw err;
-		});
-	return catalogPending;
-}
-
-// ── Turmas fetching ──────────────────────────────────────────────────────────
-
-async function postTurmas(
-	slug: string,
-	courseId: number,
-	unitId: number,
-	bolsa: "0" | "1",
-	gratuito: "0" | "1",
-): Promise<string> {
-	return withRetry(async () => {
-		const params = new URLSearchParams({
-			nomeCurso: slug,
-			cursoId: String(courseId),
-			escolaId: String(unitId),
-			estrategia: "Presencial",
-			bolsa,
-			gratuito,
-			turno: "0",
-			pos: "0",
-		});
-		const res = await fetch(`${SENAI_BASE}/cursosturmas/`, {
-			method: "POST",
-			headers: {
-				"User-Agent": "Mozilla/5.0",
-				"X-Requested-With": "XMLHttpRequest",
-				"Content-Type": "application/x-www-form-urlencoded",
-			},
-			body: params.toString(),
-			signal: AbortSignal.timeout(config.fetchTimeoutMs),
-		});
-		return res.ok ? res.text() : "";
-	}).catch(() => "");
-}
-
-function fetchTurmas(slug: string, courseId: number, unitId: number): Promise<string> {
-	return postTurmas(slug, courseId, unitId, "1", "1");
-}
-
-function fetchTurmasPaid(slug: string, courseId: number, unitId: number): Promise<string> {
-	return postTurmas(slug, courseId, unitId, "0", "0");
-}
-
-// ── HTML parsing ─────────────────────────────────────────────────────────────
-
-function parseDateKey(dmy: string): number {
-	const [d, m, y] = dmy.split("/");
-	return parseInt(`${y}${m}${d}`, 10);
-}
-
-interface TurmasResult {
-	totalVagas: number;
-	turmaCount: number;
-	startDates: string[];
-	schedules: { periodo: string; horario: string }[];
-	prices: string[];
-}
-
-function parseTurmasHtml(html: string): TurmasResult {
-	let totalVagas = 0;
-	let turmaCount = 0;
-	const vagasRegex = /Vagas:\s*(?:<\/span>\s*)?(\d+)/g;
-	for (const m of html.matchAll(vagasRegex)) {
-		const count = m[1];
-		if (!count) continue;
-		totalVagas += parseInt(count, 10);
-		turmaCount++;
-	}
-
-	const startDatesRaw = new Set<string>();
-	const startDateRegex = /Início\s*<br\s*\/?>\s*<strong>\s*(\d{2}\/\d{2}\/\d{4})\s*<\/strong>/g;
-	for (const m of html.matchAll(startDateRegex)) {
-		if (m[1]) startDatesRaw.add(m[1]);
-	}
-	const startDates = [...startDatesRaw].sort((a, b) => parseDateKey(a) - parseDateKey(b));
-
-	const schedulesMap = new Map<string, { periodo: string; horario: string }>();
-	const scheduleRegex =
-		/Hor[aá]rio<\/strong>(?:<\/div>\s*)+<div[^>]*>\s*<div[^>]*>\s*([\s\S]*?)\s*<\/div>\s*<div[^>]*>\s*([\s\S]*?)\s*<\/div>/gi;
-	for (const m of html.matchAll(scheduleRegex)) {
-		const periodo = decodeEntities(m[1] ?? "").trim();
-		const horario = decodeEntities(m[2] ?? "").trim();
-		if (!periodo || !horario) continue;
-		const key = `${periodo}|${horario}`;
-		if (!schedulesMap.has(key)) schedulesMap.set(key, { periodo, horario });
-	}
-	const schedules = [...schedulesMap.values()];
-
-	const pricesRaw = new Set<string>();
-	const priceRegex = /Investimento[\s\S]{0,150}?<strong>\s*(R\$\s*[\d.,]+)\s*<\/strong>/gi;
-	for (const m of html.matchAll(priceRegex)) {
-		if (m[1]) pricesRaw.add(m[1].replace(/[\s ]+/g, " ").trim());
-	}
-	const prices = [...pricesRaw].sort((a, b) => {
-		const toNum = (s: string) => parseFloat(s.replace(/[^\d,]/g, "").replace(",", "."));
-		return toNum(a) - toNum(b);
+function _jsonResponse(data: unknown, cacheControl: string, status = 200): Response {
+	return new Response(JSON.stringify(data), {
+		status,
+		headers: {
+			"Content-Type": "application/json",
+			"Cache-Control": cacheControl,
+		},
 	});
-
-	return { totalVagas, turmaCount, startDates, schedules, prices };
 }
-
-// ── Unit data scraping ────────────────────────────────────────────────────────
-
-async function scrapeUnitData(unitId: number): Promise<CoursesData> {
-	const catalog = await getCatalog();
-	const unitEntries = catalog.entries.filter((e) => e.unitId === unitId);
-
-	const courses = await withConcurrency(
-		unitEntries.map((entry) => async (): Promise<Course> => {
-			const html = await fetchTurmas(entry.slug, entry.courseId, unitId);
-			const { totalVagas, turmaCount, startDates, schedules } = parseTurmasHtml(html);
-			return {
-				name: entry.name,
-				slug: entry.slug,
-				id: entry.courseId,
-				hours: entry.hours,
-				vagas: totalVagas,
-				turmas: turmaCount,
-				startDates,
-				schedules,
-				prices: [],
-				isBolsa: entry.isBolsa,
-			};
-		}),
-		config.turmasConcurrency,
-	);
-
-	courses.sort((a, b) => b.vagas - a.vagas || a.name.localeCompare(b.name, "pt-BR"));
-
-	// Persist asynchronously — does not block the response
-	dbUpsertCourses(unitId, courses, false).catch(() => {});
-
-	return { courses, lastUpdated: new Date().toISOString() };
-}
-
-async function scrapeUnitPaidData(unitId: number): Promise<CoursesData> {
-	const catalog = await getCatalog();
-	// BOLSA courses are always free scholarships — the SENAI API returns turma data for them
-	// even under bolsa=0/gratuito=0, but never prices. Skip them to avoid false positives
-	// and to save unnecessary HTTP requests.
-	const unitEntries = catalog.entries.filter((e) => e.unitId === unitId && !e.isBolsa);
-
-	const courses = await withConcurrency(
-		unitEntries.map((entry) => async (): Promise<Course> => {
-			const html = await fetchTurmasPaid(entry.slug, entry.courseId, unitId);
-			const { totalVagas, turmaCount, startDates, schedules, prices } = parseTurmasHtml(html);
-			return {
-				name: entry.name,
-				slug: entry.slug,
-				id: entry.courseId,
-				hours: entry.hours,
-				vagas: totalVagas,
-				turmas: turmaCount,
-				startDates,
-				schedules,
-				prices,
-				isBolsa: false,
-			};
-		}),
-		config.turmasConcurrency,
-	);
-
-	// prices.length > 0 is the authoritative signal that a course is truly paid.
-	// Free courses queried under bolsa=0/gratuito=0 return turmas but never prices.
-	const paidOnly = courses.filter((c) => c.prices.length > 0);
-	paidOnly.sort((a, b) => b.vagas - a.vagas || a.name.localeCompare(b.name, "pt-BR"));
-
-	// Persist asynchronously — does not block the response
-	dbUpsertCourses(unitId, paidOnly, true).catch(() => {});
-
-	return { courses: paidOnly, lastUpdated: new Date().toISOString() };
-}
-
-// ── Cache + DB layer ──────────────────────────────────────────────────────────
-
-async function getUnitData(unitId: number, force = false): Promise<CoursesData> {
-	const cached = unitDataCache.get(unitId);
-	const isStale = !cached || Date.now() - cached.updatedAt > config.unitTtlMs;
-	if (!force && !isStale && cached) return cached.data;
-
-	const pending = unitDataPending.get(unitId);
-	if (pending) return pending;
-
-	// DB fast path: serve from persisted data if still fresh
-	if (!force) {
-		const dbTs = await dbGetScrapedAt(unitId, false);
-		if (dbTs !== null && Date.now() - dbTs < config.unitTtlMs) {
-			const dbData = await dbGetCourses(unitId, false);
-			if (dbData) {
-				unitDataCache.set(unitId, { data: dbData, updatedAt: dbTs });
-				return dbData;
-			}
-		}
-		// Re-check: another request may have started scraping during the DB await
-		const rePending = unitDataPending.get(unitId);
-		if (rePending) return rePending;
-	}
-
-	const promise = scrapeUnitData(unitId)
-		.then((data) => {
-			unitDataCache.set(unitId, { data, updatedAt: Date.now() });
-			unitDataPending.delete(unitId);
-			return data;
-		})
-		.catch(async (err) => {
-			unitDataPending.delete(unitId);
-			// On scrape failure, fall back to whatever the DB has (even if stale)
-			const stale = await dbGetCourses(unitId, false);
-			if (stale) {
-				// Mark as slightly-stale so it re-scrapes within 1 min
-				unitDataCache.set(unitId, {
-					data: stale,
-					updatedAt: Date.now() - config.unitTtlMs + 60_000,
-				});
-				return stale;
-			}
-			throw err;
-		});
-	unitDataPending.set(unitId, promise);
-	return promise;
-}
-
-async function getUnitPaidData(unitId: number, force = false): Promise<CoursesData> {
-	const cached = unitPaidDataCache.get(unitId);
-	const isStale = !cached || Date.now() - cached.updatedAt > config.unitTtlMs;
-	if (!force && !isStale && cached) return cached.data;
-
-	const pending = unitPaidDataPending.get(unitId);
-	if (pending) return pending;
-
-	// DB fast path
-	if (!force) {
-		const dbTs = await dbGetScrapedAt(unitId, true);
-		if (dbTs !== null && Date.now() - dbTs < config.unitTtlMs) {
-			const dbData = await dbGetCourses(unitId, true);
-			if (dbData) {
-				unitPaidDataCache.set(unitId, { data: dbData, updatedAt: dbTs });
-				return dbData;
-			}
-		}
-		const rePending = unitPaidDataPending.get(unitId);
-		if (rePending) return rePending;
-	}
-
-	const promise = scrapeUnitPaidData(unitId)
-		.then((data) => {
-			unitPaidDataCache.set(unitId, { data, updatedAt: Date.now() });
-			unitPaidDataPending.delete(unitId);
-			return data;
-		})
-		.catch(async (err) => {
-			unitPaidDataPending.delete(unitId);
-			const stale = await dbGetCourses(unitId, true);
-			if (stale) {
-				unitPaidDataCache.set(unitId, {
-					data: stale,
-					updatedAt: Date.now() - config.unitTtlMs + 60_000,
-				});
-				return stale;
-			}
-			throw err;
-		});
-	unitPaidDataPending.set(unitId, promise);
-	return promise;
-}
-
-// ── Server ───────────────────────────────────────────────────────────────────
 
 const server = serve({
 	port: config.port,
 	hostname: config.host,
+	// Bun.serve's default idleTimeout is 10s — too short for a cold-cache request
+	// that has to build a whole state's catalog from scratch (TO's ~32-área build
+	// alone can take well over a minute; confirmed in practice: the connection was
+	// getting dropped with an empty response mid-build, not because the build
+	// failed). Only the FIRST request per (uf, área) after a catalogTtl expiry
+	// pays this cost — everything after is served from cache almost instantly.
+	idleTimeout: 180,
 	routes: {
 		"/*": index,
 
+		"/api/states": {
+			GET() {
+				// logo/flag/hue are omitted: outside the frontend's bundler context these
+				// asset imports resolve to raw local filesystem paths, not public URLs.
+				// The frontend already has that cosmetic data locally (see state-meta.ts)
+				// and only reads status/sourceLabel from this endpoint.
+				const publicStates = STATES.map(({ uf, name, sourceLabel, status }) => ({
+					uf,
+					name,
+					sourceLabel,
+					status,
+				}));
+				return Response.json(publicStates, {
+					headers: { "Cache-Control": "public, max-age=3600" },
+				});
+			},
+		},
+
 		"/api/units": {
-			async GET() {
+			async GET(req) {
+				const adapter = getAdapter(ufFromRequest(req));
+				if (!adapter) return Response.json({ error: "Estado indisponível" }, { status: 404 });
 				try {
-					const [units, catalog] = await Promise.all([getUnits(), getCatalog()]);
-					const catalogUnitIds = new Set(catalog.entries.map((e) => e.unitId));
-					const filtered = units.filter((u) => catalogUnitIds.has(u.id));
+					const [units, catalogUnitIds] = await Promise.all([
+						adapter.getUnits(),
+						adapter.getCatalogUnitIds(areaFromRequest(req)),
+					]);
+					const catalogSet = new Set(catalogUnitIds);
+					const filtered = units.filter((u) => catalogSet.has(u.id));
 					return Response.json(filtered, {
 						headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=300" },
 					});
 				} catch {
 					return Response.json({ error: "Falha ao buscar unidades" }, { status: 500 });
+				}
+			},
+		},
+
+		"/api/areas": {
+			async GET(req) {
+				const adapter = getAdapter(ufFromRequest(req));
+				if (!adapter) return Response.json({ error: "Estado indisponível" }, { status: 404 });
+				try {
+					const areas = await adapter.getAreas();
+					return Response.json(areas, {
+						headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=600" },
+					});
+				} catch {
+					return Response.json({ error: "Falha ao buscar áreas" }, { status: 500 });
 				}
 			},
 		},
@@ -607,20 +143,11 @@ const server = serve({
 		},
 
 		"/api/courses": {
-			async GET(req: Request) {
+			async GET(req) {
+				const adapter = getAdapter(ufFromRequest(req));
+				if (!adapter) return Response.json({ error: "Estado indisponível" }, { status: 404 });
 				try {
-					const unitId = parseInt(
-						new URL(req.url).searchParams.get("unit") ?? String(config.defaultUnitId),
-						10,
-					);
-					const cached = unitDataCache.get(unitId);
-					let data: CoursesData;
-					if (cached) {
-						if (Date.now() - cached.updatedAt > config.unitTtlMs) getUnitData(unitId);
-						data = cached.data;
-					} else {
-						data = await getUnitData(unitId);
-					}
+					const data = await adapter.getUnitData(unitIdFromRequest(req), areaFromRequest(req));
 					return Response.json(data, {
 						headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=300" },
 					});
@@ -631,20 +158,11 @@ const server = serve({
 		},
 
 		"/api/paid-courses": {
-			async GET(req: Request) {
+			async GET(req) {
+				const adapter = getAdapter(ufFromRequest(req));
+				if (!adapter) return Response.json({ error: "Estado indisponível" }, { status: 404 });
 				try {
-					const unitId = parseInt(
-						new URL(req.url).searchParams.get("unit") ?? String(config.defaultUnitId),
-						10,
-					);
-					const cached = unitPaidDataCache.get(unitId);
-					let data: CoursesData;
-					if (cached) {
-						if (Date.now() - cached.updatedAt > config.unitTtlMs) getUnitPaidData(unitId);
-						data = cached.data;
-					} else {
-						data = await getUnitPaidData(unitId);
-					}
+					const data = await adapter.getUnitPaidData(unitIdFromRequest(req), areaFromRequest(req));
 					return Response.json(data, {
 						headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=300" },
 					});
@@ -655,35 +173,18 @@ const server = serve({
 		},
 
 		"/api/courses/all": {
-			async GET(req: Request) {
+			async GET(req) {
+				const adapter = getAdapter(ufFromRequest(req));
+				if (!adapter) return Response.json({ error: "Estado indisponível" }, { status: 404 });
 				try {
-					const unitId = parseInt(
-						new URL(req.url).searchParams.get("unit") ?? String(config.defaultUnitId),
-						10,
-					);
-					const [freeCached, paidCached] = [
-						unitDataCache.get(unitId),
-						unitPaidDataCache.get(unitId),
-					];
-
-					let freeData: CoursesData;
-					if (freeCached) {
-						if (Date.now() - freeCached.updatedAt > config.unitTtlMs) getUnitData(unitId);
-						freeData = freeCached.data;
-					} else {
-						freeData = await getUnitData(unitId);
-					}
-
-					let paidData: CoursesData;
-					if (paidCached) {
-						if (Date.now() - paidCached.updatedAt > config.unitTtlMs) getUnitPaidData(unitId);
-						paidData = paidCached.data;
-					} else {
-						paidData = await getUnitPaidData(unitId);
-					}
-
+					const unitId = unitIdFromRequest(req);
+					const area = areaFromRequest(req);
+					const [free, paid] = await Promise.all([
+						adapter.getUnitData(unitId, area),
+						adapter.getUnitPaidData(unitId, area),
+					]);
 					return Response.json(
-						{ free: freeData, paid: paidData },
+						{ free, paid },
 						{
 							headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=300" },
 						},
@@ -696,12 +197,12 @@ const server = serve({
 
 		"/api/refresh": {
 			async POST(req) {
+				const adapter = getAdapter(ufFromRequest(req));
+				if (!adapter) return Response.json({ error: "Estado indisponível" }, { status: 404 });
 				try {
-					const unitId = parseInt(
-						new URL(req.url).searchParams.get("unit") ?? String(config.defaultUnitId),
-						10,
+					return Response.json(
+						await adapter.getUnitData(unitIdFromRequest(req), areaFromRequest(req), true),
 					);
-					return Response.json(await getUnitData(unitId, true));
 				} catch {
 					return Response.json({ error: "Falha ao atualizar cursos" }, { status: 500 });
 				}
@@ -710,12 +211,12 @@ const server = serve({
 
 		"/api/paid-refresh": {
 			async POST(req) {
+				const adapter = getAdapter(ufFromRequest(req));
+				if (!adapter) return Response.json({ error: "Estado indisponível" }, { status: 404 });
 				try {
-					const unitId = parseInt(
-						new URL(req.url).searchParams.get("unit") ?? String(config.defaultUnitId),
-						10,
+					return Response.json(
+						await adapter.getUnitPaidData(unitIdFromRequest(req), areaFromRequest(req), true),
 					);
-					return Response.json(await getUnitPaidData(unitId, true));
 				} catch {
 					return Response.json({ error: "Falha ao atualizar cursos pagos" }, { status: 500 });
 				}
@@ -731,37 +232,109 @@ const server = serve({
 
 console.log(`🚀 Servidor operando em ${server.url}`);
 
-// ── Startup: DB + warmup ──────────────────────────────────────────────────────
+// ── Startup: DB + warmup (only for states with a live adapter) ────────────────
 
-// Connect to embedded DB first; pre-populate units for instant /api/units response
 connectDb()
-	.then(async () => {
-		const dbUnits = await dbGetAllUnits();
-		if (dbUnits.length > 0 && !unitsRegistry) {
-			unitsRegistry = dbUnits;
-			console.log(`[db] ${dbUnits.length} unidades pré-carregadas do banco`);
+	.then(() => console.log("[db] pronto"))
+	.catch(console.error);
+
+for (const state of STATES) {
+	if (state.status !== "active") continue;
+	const adapter = getAdapter(state.uf);
+	if (!adapter) continue;
+
+	adapter
+		.getUnits()
+		.then(async (units) => {
+			if (units.length === 0) {
+				const dbUnits = await dbGetAllUnits(state.uf);
+				console.log(`[${state.uf}] ${dbUnits.length} unidades pré-carregadas do banco`);
+			}
+		})
+		.catch(console.error);
+
+	// Only the default área (T.I.) is pre-warmed at startup — every other real
+	// área a state exposes (see getAreas()) is fetched lazily on first request,
+	// which keeps startup cost from scaling with a state's full category count.
+	adapter
+		.getCatalogUnitIds(DEFAULT_AREA_SLUG)
+		.then(async (unitIds) => {
+			console.log(`[${state.uf}] verificando ${unitIds.length} unidades…`);
+			let done = 0;
+			await withConcurrency(
+				unitIds.map((uid) => async () => {
+					await Promise.all([
+						adapter.getUnitData(uid, DEFAULT_AREA_SLUG),
+						adapter.getUnitPaidData(uid, DEFAULT_AREA_SLUG),
+					]);
+					done++;
+					if (done % 10 === 0 || done === unitIds.length) {
+						console.log(`[${state.uf}] ${done}/${unitIds.length} unidades carregadas`);
+					}
+				}),
+				config.warmupConcurrency,
+			);
+			console.log(`[${state.uf}] todas as unidades carregadas ✓`);
+		})
+		.catch(console.error);
+}
+
+// ── Proactive refresh scheduler ──────────────────────────────────────────────
+// Refreshes cached unit data BEFORE TTL expires so users never wait for a scrape.
+// Runs every half-TTL; for each active state, re-fetches all catalog units with
+// low concurrency (3) to avoid upstream spikes. Falls back gracefully on errors.
+
+const REFRESH_INTERVAL_MS = Math.max(config.unitTtlMs / 2, 60_000);
+const REFRESH_CONCURRENCY = 3;
+
+function scheduleProactiveRefresh(): void {
+	setInterval(async () => {
+		for (const state of STATES) {
+			if (state.status !== "active") continue;
+			const adapter = getAdapter(state.uf);
+			if (!adapter) continue;
+			try {
+				const unitIds = await adapter.getCatalogUnitIds(DEFAULT_AREA_SLUG);
+				let done = 0;
+				await withConcurrency(
+					unitIds.map((uid) => async () => {
+						await Promise.allSettled([
+							adapter.getUnitData(uid, DEFAULT_AREA_SLUG, true),
+							adapter.getUnitPaidData(uid, DEFAULT_AREA_SLUG, true),
+						]);
+						done++;
+						if (done % 20 === 0 || done === unitIds.length) {
+							console.log(`[${state.uf}] refresh proativo ${done}/${unitIds.length}`);
+						}
+					}),
+					REFRESH_CONCURRENCY,
+				);
+				console.log(`[${state.uf}] refresh proativo concluído ✓`);
+			} catch (err) {
+				console.error(`[${state.uf}] erro no refresh proativo:`, err);
+			}
 		}
-	})
-	.catch(console.error);
+	}, REFRESH_INTERVAL_MS);
+	console.log(`[scheduler] refresh proativo a cada ${Math.round(REFRESH_INTERVAL_MS / 1000)}s`);
+}
 
-// Build catalog then scrape/refresh ALL units — saves to DB after each unit
-getCatalog()
-	.then(async (catalog) => {
-		const unitIds = [...new Set(catalog.entries.map((e) => e.unitId))];
-		console.log(`[warmup] verificando ${unitIds.length} unidades…`);
-		let done = 0;
-		await withConcurrency(
-			unitIds.map((uid) => async () => {
-				await Promise.all([getUnitData(uid), getUnitPaidData(uid)]);
-				done++;
-				if (done % 10 === 0 || done === unitIds.length) {
-					console.log(`[warmup] ${done}/${unitIds.length} unidades carregadas`);
-				}
-			}),
-			config.warmupConcurrency,
-		);
-		console.log("[warmup] todas as unidades carregadas ✓");
-	})
-	.catch(console.error);
+// Start scheduler after initial warmup has had time to complete
+setTimeout(scheduleProactiveRefresh, 60_000);
 
-getUnits().catch(console.error);
+// ── Stale-data cleanup ───────────────────────────────────────────────────────
+// See dbDeleteStaleCourses in db.ts — without this the course table only grows
+// as adapters' catalogs rotate over time, across every state. A course not
+// re-scraped in 7 days means it's genuinely gone from its source, not just
+// unlucky timing (every adapter re-upserts its full catalog at least every
+// catalogTtlMs, which defaults to 2h).
+const STALE_COURSE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+function scheduleStaleCleanup(): void {
+	setInterval(async () => {
+		const deleted = await dbDeleteStaleCourses(STALE_COURSE_MAX_AGE_MS);
+		if (deleted > 0) console.log(`[db] ${deleted} curso(s) obsoleto(s) removido(s)`);
+	}, CLEANUP_INTERVAL_MS);
+}
+
+setTimeout(scheduleStaleCleanup, 5 * 60_000);

@@ -1,0 +1,317 @@
+[
+	{
+		"uf": "sp",
+		"name": "São Paulo",
+		"reachedUrl": "https://www.sp.senai.br/cursos/cursos-livres/tecnologia-da-informacao-e-informatica",
+		"statusCode": 200,
+		"platform": "sp-php",
+		"evidence": ["SP-custom PHP (openModalTurmas / cursosturmas endpoint)"],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "sc",
+		"name": "Santa Catarina",
+		"reachedUrl": "https://cursos.sesisenai.org.br/cursos-profissionalizantes",
+		"statusCode": 200,
+		"platform": "nuxt",
+		"evidence": [
+			"wp-json/wp-content detected",
+			"__NUXT__ hydration data",
+			"SENAI-SC Nuxt JSON API",
+			"ASP.NET (aspx/viewstate)",
+			"Vue.js SPA"
+		],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "ac",
+		"name": "Acre",
+		"reachedUrl": "https://senaiac.org.br/",
+		"statusCode": 200,
+		"platform": "vtex",
+		"evidence": [
+			"wp-json/wp-content detected",
+			"Elementor page builder",
+			"futuro.digital e-commerce",
+			"ASP.NET (aspx/viewstate)"
+		],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "al",
+		"name": "Alagoas",
+		"reachedUrl": "https://al.senai.br/cursos/",
+		"statusCode": 200,
+		"platform": "wordpress",
+		"evidence": ["wp-json/wp-content detected"],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "ap",
+		"name": "Amapá",
+		"reachedUrl": "https://www.ap.senai.br/",
+		"statusCode": 200,
+		"platform": "vtex",
+		"evidence": [
+			"wp-json/wp-content detected",
+			"futuro.digital e-commerce",
+			"ASP.NET (aspx/viewstate)",
+			"Joomla"
+		],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "am",
+		"name": "Amazonas",
+		"reachedUrl": "https://fieam.org.br/senai/",
+		"statusCode": 200,
+		"platform": "wordpress",
+		"evidence": ["wp-json/wp-content detected", "Elementor page builder"],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "ba",
+		"name": "Bahia",
+		"reachedUrl": "https://curtaduracaosenaiba.com.br/",
+		"statusCode": 200,
+		"platform": "wordpress",
+		"evidence": ["wp-json/wp-content detected", "Elementor page builder"],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "ce",
+		"name": "Ceará",
+		"reachedUrl": "https://www.senai-ce.org.br/cursos",
+		"statusCode": 200,
+		"platform": "ce-custom",
+		"evidence": [
+			"CE-custom (senai-ce.org.br per-course pages)",
+			"ASP.NET (aspx/viewstate)",
+			"Vue.js SPA"
+		],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "df",
+		"name": "Distrito Federal",
+		"reachedUrl": "https://www.sistemafibra.org.br/senai/educacao/educacao-profissional/cursos",
+		"statusCode": 200,
+		"platform": "joomla",
+		"evidence": ["Joomla"],
+		"redirectedTo": "https://www.sistemafibra.org.br/senai/educacao/educacao-profissional/cursos",
+		"notes": ""
+	},
+	{
+		"uf": "es",
+		"name": "Espírito Santo",
+		"reachedUrl": "https://senaies.com.br/",
+		"statusCode": 200,
+		"platform": "vtex",
+		"evidence": [
+			"wp-json/wp-content detected",
+			"Elementor page builder",
+			"VTEX catalog API",
+			"ASP.NET (aspx/viewstate)"
+		],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "go",
+		"name": "Goiás",
+		"reachedUrl": "https://senaigoias.com.br/cursos/",
+		"statusCode": 200,
+		"platform": "unknown",
+		"evidence": [],
+		"redirectedTo": null,
+		"notes": "No platform signature detected — needs DevTools inspection"
+	},
+	{
+		"uf": "ma",
+		"name": "Maranhão",
+		"reachedUrl": "https://www.futuro.digital/senai-ma",
+		"statusCode": 200,
+		"platform": "vtex",
+		"evidence": [
+			"futuro.digital e-commerce",
+			"VTEX catalog API",
+			"__NEXT_DATA__ hydration",
+			"ASP.NET (aspx/viewstate)",
+			"React/Next.js SPA"
+		],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "mt",
+		"name": "Mato Grosso",
+		"reachedUrl": "https://senaimt.ind.br/para-voce/cursos",
+		"statusCode": 200,
+		"platform": "aspnet",
+		"evidence": ["ASP.NET (aspx/viewstate)"],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "ms",
+		"name": "Mato Grosso do Sul",
+		"reachedUrl": "https://www.ms.senai.br/para-voce",
+		"statusCode": 200,
+		"platform": "unknown",
+		"evidence": [],
+		"redirectedTo": null,
+		"notes": "No platform signature detected — needs DevTools inspection"
+	},
+	{
+		"uf": "mg",
+		"name": "Minas Gerais",
+		"reachedUrl": "https://www.fiemg.com.br/cursos-tecnicos-senai/",
+		"statusCode": 200,
+		"platform": "vtex",
+		"evidence": [
+			"wp-json/wp-content detected",
+			"Elementor page builder",
+			"VTEX catalog API",
+			"ASP.NET (aspx/viewstate)"
+		],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "pa",
+		"name": "Pará",
+		"reachedUrl": "https://www.senaipa.org.br/sistema-cursos",
+		"statusCode": 200,
+		"platform": "vtex",
+		"evidence": ["Elementor page builder", "futuro.digital e-commerce", "React/Next.js SPA"],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "pb",
+		"name": "Paraíba",
+		"reachedUrl": "https://fiepb.com.br/senai/cursos",
+		"statusCode": 200,
+		"platform": "unknown",
+		"evidence": [],
+		"redirectedTo": null,
+		"notes": "No platform signature detected — needs DevTools inspection"
+	},
+	{
+		"uf": "pe",
+		"name": "Pernambuco",
+		"reachedUrl": "https://cursos.pe.senai.br/futuro-digital",
+		"statusCode": 200,
+		"platform": "vtex",
+		"evidence": ["futuro.digital e-commerce"],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "pi",
+		"name": "Piauí",
+		"reachedUrl": "https://www.fiepi.com.br/",
+		"statusCode": 200,
+		"platform": "vtex",
+		"evidence": ["futuro.digital e-commerce"],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "pr",
+		"name": "Paraná",
+		"reachedUrl": "https://novo.senaipr.org.br/pt/cursos-tecnicos",
+		"statusCode": 200,
+		"platform": "next",
+		"evidence": ["React/Next.js SPA"],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "rj",
+		"name": "Rio de Janeiro",
+		"reachedUrl": "https://firjansenai.com.br/cursos",
+		"statusCode": 200,
+		"platform": "drupal",
+		"evidence": ["Drupal (sites/default/files or jsonapi)", "ASP.NET (aspx/viewstate)"],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "rn",
+		"name": "Rio Grande do Norte",
+		"reachedUrl": "https://www.rn.senai.br/cursos-gratis-e-pagos-tem-tudo-na-loja-senai/",
+		"statusCode": 200,
+		"platform": "vtex",
+		"evidence": [
+			"wp-json/wp-content detected",
+			"Elementor page builder",
+			"futuro.digital e-commerce",
+			"ASP.NET (aspx/viewstate)"
+		],
+		"redirectedTo": "https://www.rn.senai.br/cursos-gratis-e-pagos-tem-tudo-na-loja-senai/",
+		"notes": ""
+	},
+	{
+		"uf": "rs",
+		"name": "Rio Grande do Sul",
+		"reachedUrl": "https://cursos.senairs.org.br/",
+		"statusCode": 200,
+		"platform": "wordpress",
+		"evidence": [
+			"wp-json/wp-content detected",
+			"Elementor page builder",
+			"ASP.NET (aspx/viewstate)"
+		],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "ro",
+		"name": "Rondônia",
+		"reachedUrl": "https://portal.fiero.org.br/senai",
+		"statusCode": 200,
+		"platform": "vtex",
+		"evidence": ["futuro.digital e-commerce", "ASP.NET (aspx/viewstate)"],
+		"redirectedTo": null,
+		"notes": ""
+	},
+	{
+		"uf": "rr",
+		"name": "Roraima",
+		"reachedUrl": "",
+		"statusCode": 0,
+		"platform": "unreachable",
+		"evidence": [],
+		"redirectedTo": null,
+		"notes": "All candidate URLs failed — domain may be different or site offline"
+	},
+	{
+		"uf": "se",
+		"name": "Sergipe",
+		"reachedUrl": "",
+		"statusCode": 0,
+		"platform": "unreachable",
+		"evidence": [],
+		"redirectedTo": null,
+		"notes": "All candidate URLs failed — domain may be different or site offline"
+	},
+	{
+		"uf": "to",
+		"name": "Tocantins",
+		"reachedUrl": "http://cursos.senai-to.com.br/Inicio/CatalogoCursos?modalidade=Outros",
+		"statusCode": 200,
+		"platform": "aspnet",
+		"evidence": ["ASP.NET (aspx/viewstate)"],
+		"redirectedTo": "http://cursos.senai-to.com.br/Inicio/CatalogoCursos?modalidade=Outros",
+		"notes": ""
+	}
+]

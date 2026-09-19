@@ -1,16 +1,14 @@
-# Contributing to SENAI-SP Course Intelligence
+# Contributing to SENAI Course Intelligence
 
-Welcome! Thank you for your interest in contributing to **SENAI-SP Course Intelligence**.
-
-This project is an open-source platform designed to aggregate, normalize, and visualize public course offerings across SENAI São Paulo units. We welcome contributions from software engineers, data engineers, UX/UI designers, researchers, and tech enthusiasts.
+Welcome! This project aggregates, normalizes, and visualizes public course offerings across multiple Brazilian SENAI state federations. We welcome contributions from software engineers, data engineers, UX/UI designers, researchers, and enthusiasts.
 
 ---
 
 ## Before You Start
 
 - Review existing [GitHub Issues](https://github.com/ariel-aram/senai-cursos/issues) and [Pull Requests](https://github.com/ariel-aram/senai-cursos/pulls) before starting substantial new work.
-- Ensure your changes strictly respect upstream data sources (`sp.senai.br`).
-- Maintain respectful and constructive communication across all interactions.
+- Any change touching data ingestion must respect the upstream source it's fetching from (rate limits, caching, no bypassing access controls).
+- Keep communication respectful and constructive.
 
 ---
 
@@ -21,86 +19,82 @@ This project is an open-source platform designed to aggregate, normalize, and vi
 - [Bun](https://bun.sh) (v1.1.0 or higher)
 - Git
 
-### Local Setup Steps
+### Local Setup
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/ariel-aram/senai-cursos.git
 cd senai-cursos
-
-# 2. Install dependencies
 bun install
-
-# 3. Create local configuration from template
 cp config/config.example.ts config/config.ts
-
-# 4. Start the development server with Hot Module Reloading
 bun dev
 ```
 
-The application will be accessible at `http://localhost:3010`.
+The app is served at `http://localhost:3010`.
 
-> **Note on Storage:** By default, SurrealDB runs embedded using SurrealKV (`surrealkv://./data/senai.db`). If the database connection fails, the server continues operating seamlessly in-memory without persistent storage.
+> **Storage note:** SurrealDB runs embedded via the RocksDB engine (`rocksdb://./data/senai.db` by default — see the comment in `config/config.example.ts` for why not SurrealKV on this stack). If the DB connection fails for any reason, the server keeps working from in-memory cache alone; persistence is a durability layer, not a hard dependency.
 
 ---
 
 ## Project Structure
 
-```bash
+```text
 senai-cursos/
 ├── config/
-│   └── config.example.ts       # Centralized runtime configuration template
-├── data/                       # Embedded SurrealKV database files (local)
-├── docs/                       # Technical architecture, API, and module documentation
-│   ├── api.md                  # HTTP REST endpoints documentation
-│   ├── architecture.md         # System design and data flow specifications
-│   ├── deployment.md           # Production deployment procedures
-│   ├── frontend.md             # UI component architecture and state management
-│   └── scraping.md             # Upstream ingestion and parsing mechanics
+│   └── config.example.ts       # Runtime configuration template — copy to config.ts
+├── data/                       # Embedded SurrealDB files (local, gitignored)
 ├── src/
-│   ├── components/ui/          # Reusable UI primitives (Button, Card)
-│   ├── lib/                    # Shared client utilities (cn helper)
-│   ├── App.tsx                 # Main React frontend component
-│   ├── db.ts                   # SurrealDB connection, schema queries, and upserts
-│   ├── frontend.tsx            # React client-side entry point
-│   ├── index.html              # Base HTML template for the SPA
-│   ├── index.ts                # Bun server entry point, ingestion logic, and API routes
-│   └── types.ts                # Shared TypeScript interfaces (Course, Unit, Schedules)
-├── build.ts                    # Production frontend bundler script
-└── package.json                # Project scripts, dependencies, and metadata
+│   ├── adapters/                # One StateAdapter implementation per active state
+│   │   ├── types.ts             # The StateAdapter interface every adapter implements
+│   │   ├── registry.ts          # uf -> adapter map — the real "active vs coming-soon" source of truth
+│   │   ├── futuro-digital.ts    # Shared VTEX-backend adapter factory (used by several states)
+│   │   ├── keyed-cache.ts       # In-memory single-flight TTL cache used by every adapter
+│   │   ├── http.ts              # Shared fetch/retry/concurrency helpers
+│   │   └── <uf>.ts              # sp.ts, sc.ts, ma.ts, ... one file per state
+│   ├── assets/                  # Flags, logos, and the Aero cursor pack (src/assets/cursors/)
+│   ├── components/ui/           # Reusable UI primitives (Button, Card)
+│   ├── lib/
+│   │   ├── cursors.ts            # Custom Aero cursor system (.cur/.ani rendering, hue -> color mapping)
+│   │   └── utils.ts              # cn() class-merging helper
+│   ├── App.tsx                  # Main React frontend
+│   ├── state-meta.ts            # Static per-state cosmetic data (name, logo, flag, hue) — browser-safe
+│   ├── constants.ts             # Shared frontend/backend constants (default área slug/label)
+│   ├── db.ts                    # SurrealDB connection, upserts, and queries
+│   ├── frontend.tsx             # React client entry point
+│   ├── index.html               # SPA HTML template
+│   ├── index.ts                 # Bun server entry point — HTTP routes, warmup, proactive refresh
+│   └── types.ts                 # Shared schema: Course, UnitInfo, Area, StateAdapter's return types
+├── styles/globals.css           # Tailwind + the hand-written Frutiger Aero design layer
+├── build.ts                     # Production frontend bundler
+└── package.json                 # Scripts, dependencies, metadata
 ```
 
 ---
 
 ## Areas for Contribution
 
-We welcome contributions across several domains:
-
-1. **Bug Fixes:** Resolving parsing errors, UI anomalies, or edge cases.
-2. **Data Pipeline & Reliability:** Optimizing ingestion throughput, refining regex safety, and improving cache invalidation strategies.
-3. **Frontend & UX:** Enhancing accessibility (a11y), responsive layouts, and filter usability.
-4. **Documentation:** Improving code comments, architecture guides, and API documentation.
-5. **Testing & QA:** Introducing unit and integration tests for data normalizers and API endpoints.
+1. **New State Adapters:** The biggest lever for impact — see [Adding a State](README.md#adding-a-state) in the README. Every new adapter must be verified against the *real* live source (real products, real available turmas) before being wired into the active registry — a state that looks active but returns an empty catalog is worse than leaving it "coming soon".
+2. **Bug Fixes:** Parsing errors, UI issues, edge cases in any adapter.
+3. **Data Pipeline & Reliability:** Cache invalidation, concurrency tuning, resilience to upstream format changes.
+4. **Frontend & UX:** Accessibility, responsive layout, the Frutiger Aero visual language (glass panels, cursor set, brand-hue theming).
+5. **Documentation:** This file, the README, and code comments.
 
 ---
 
-## Data Collection & Scraping Guidelines
+## Data Collection Guidelines
 
-Because this platform processes public upstream data from `sp.senai.br`, all changes touching data ingestion must adhere to strict ethical and operational principles:
+Every adapter fetches from a real, public upstream source. When touching adapter code:
 
-- **Polite Upstream Concurrency:** Maintain concurrency limiters (`CATALOG_CONCURRENCY`, `TURMAS_CONCURRENCY`, `WARMUP_CONCURRENCY`) to prevent overwhelming the source portal.
-- **Cache-First Ingestion:** Always check and utilize local caches (`catalogCache`, `unitDataCache`, `unitPaidDataCache`, or SurrealDB) before issuing network requests.
-- **Defensive Parsing:** Upstream HTML structures may change without notice. All parsing logic must fail gracefully (e.g. defaulting to safe fallbacks or empty arrays) without throwing uncaught exceptions.
-- **Public Data Only:** Only collect publicly accessible course catalog and schedule data. Never attempt to circumvent access controls or collect private/restricted data.
-- **No Data Hoarding:** Do not store redundant or non-essential HTML payloads. Persist only normalized schema entities (`Course`, `UnitInfo`, `Schedule`).
+- **Respect concurrency limits** (`config.catalogConcurrency`, `turmasConcurrency`, `warmupConcurrency`) — don't hammer a state's source.
+- **Cache-first:** Always go through `KeyedAsyncCache` (`src/adapters/keyed-cache.ts`) or SurrealDB before a fresh network call.
+- **Defensive parsing:** Upstream HTML/JSON shapes change without notice. Parsing must fail gracefully — no uncaught exceptions taking down a route.
+- **Public data only.** Never attempt to bypass access controls or scrape non-public data.
+- **Verify before activating:** Before adding a state to `ADAPTERS` in `src/adapters/registry.ts`, confirm real products *and* at least one real available turma exist at the source — not just that a page loads. See the comments at the top of any existing `<uf>.ts` adapter for the kind of verification expected.
 
 ---
 
 ## Development Workflow
 
 ### Branch Conventions
-
-Use short, descriptive branch names prefixed by task type:
 
 - `feature/<description>`
 - `fix/<description>`
@@ -109,59 +103,50 @@ Use short, descriptive branch names prefixed by task type:
 
 ### Commit Messages
 
-We recommend following the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-- `feat: add export functionality for course schedules`
-- `fix: handle empty schedule table in unit parser`
-- `docs: update API response examples in docs/api.md`
-- `refactor: extract schedule deduplication helper`
-- `chore: update Biome configuration rules`
+- `feat: add SENAI-XX adapter`
+- `fix: handle empty turma list in futuro-digital adapter`
+- `docs: update adapter guide in CONTRIBUTING.md`
+- `refactor: extract hue-to-color mapping into cursors.ts`
+- `chore: bump ani-cursor version`
 
 ---
 
 ## Code Quality & Verification
 
-Before submitting a Pull Request, ensure your code passes static analysis and type checks:
+Before opening a PR:
 
 ```bash
-# Format and lint code with Biome
-bun check
-
-# Type-check TypeScript without emitting files
-bun run tsc
-
-# Test production build bundling
-bun run build
+bun check      # Biome format + lint (autofix)
+bun run tsc    # Type-check, no emit
+bun run build  # Confirm production bundling still succeeds
 ```
 
 ### Testing Notice
 
-The repository currently relies on static type verification and manual runtime testing against real or mocked unit queries. When introducing modifications:
+The repository relies on static type-checking and manual runtime verification — there is no automated test suite yet (a welcome contribution area). When changing an adapter or route:
 
-1. Verify endpoint responses manually via `curl` or browser (e.g. `GET /api/units`, `GET /api/courses?unit=403`).
-2. Test client UI behavior across both desktop and mobile viewports.
-3. If writing new helper functions, ensure comprehensive edge-case handling.
+1. Hit the affected endpoints directly (`GET /api/units?uf=sp&area=tecnologia-da-informacao`, etc.) and check the shape/values look real.
+2. Exercise the UI change in both desktop and mobile viewports.
+3. For a new/changed adapter, confirm against the real upstream source, not just that the request doesn't throw.
 
 ---
 
-## Pull Request Submission Checklist
+## Pull Request Checklist
 
-When opening a Pull Request:
-
-1. **Title:** Clear, imperative summary following conventional commit conventions.
-2. **Context & Motivation:** Explain *why* this change is necessary and *what* problem it solves.
-3. **Implementation Details:** Summarize key structural or algorithmic changes.
-4. **Verification Evidence:** Describe steps taken to test the change (include terminal output or screenshots for UI changes).
-5. **Quality Checks:** Confirm that `bun check` and `bun run tsc` passed without warnings or errors.
+1. **Title:** Clear, imperative, conventional-commit style.
+2. **Context:** Why this change, what problem it solves.
+3. **Implementation:** Key structural changes, especially for a new adapter (what backend, how verified).
+4. **Verification:** What you actually checked (commands run, screenshots for UI changes).
+5. **Quality gates:** `bun check` and `bun run tsc` pass clean.
 
 ---
 
 ## Code of Conduct
 
-All contributors and maintainers are expected to maintain an inclusive, professional, and respectful environment. Constructive criticism, open collaboration, and clear technical communication are prioritized.
-
----
+Contributors and maintainers are expected to keep interactions inclusive, professional, and respectful.
 
 ## License
 
-By contributing to **SENAI-SP Course Intelligence**, you agree that your contributions will be licensed under the [Apache License 2.0](LICENSE).
+By contributing, you agree your contributions are licensed under the [Apache License 2.0](LICENSE).

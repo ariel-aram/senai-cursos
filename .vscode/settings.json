@@ -1,0 +1,7 @@
+{
+	"css.lint.unknownAtRules": "ignore",
+	"vscode-edge-devtools.webhint": false,
+	"files.associations": {
+		"bun.lock": "plaintext"
+	}
+}
